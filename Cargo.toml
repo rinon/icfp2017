@@ -1,0 +1,7 @@
+[package]
+name = "punter"
+version = "0.1.0"
+authors = ["Stephen Crane"]
+
+[dependencies]
+getopts = "0.2"
