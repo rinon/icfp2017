@@ -23,7 +23,7 @@ fn print_usage(program: &str, opts: Options) {
     println!("{}", opts.usage(&brief));
 }
 
-fn send_message<T: ?Sized>(stream: &mut BufStream<TcpStream>, msg: &T) -> String
+fn send_message<T: ?Sized>(stream: &mut BufStream<TcpStream>, msg: &T)
     where
     T: serde::Serialize,
 {
@@ -31,22 +31,29 @@ fn send_message<T: ?Sized>(stream: &mut BufStream<TcpStream>, msg: &T) -> String
 
     let _ = stream.write_all(format!("{}:{}", msg_str.len(), msg_str).as_bytes());
     stream.flush().unwrap();
+}
 
+fn recv_message<T>(stream: &mut BufStream<TcpStream>) -> Result<T, serde_json::Error>
+    where T: serde::de::DeserializeOwned
+{
     let mut buf = vec![];
     let _ = stream.read_until(':' as u8, &mut buf);
-    buf.pop(); // Drop colon
-    let len = String::from_utf8(buf.clone()).unwrap()
-        .parse::<usize>().unwrap();
-    buf.resize(len, 0);
-    stream.read_exact(&mut buf).unwrap();
-    String::from_utf8(buf).unwrap()
+    serde_json::from_reader(stream)
 }
 
 fn online_game_loop(stream: &mut BufStream<TcpStream>) {
-    let handshake_response: protocol::HandshakeS =
-        serde_json::from_str(&send_message(stream, &punter::handshake()))
+    send_message(stream, &punter::handshake());
+    let handshake: protocol::HandshakeS = recv_message(stream)
         .expect("Could not parse handshake response");
-    println!("Received name back: {}", handshake_response.you);
+    println!("Received name back: {}", handshake.you);
+
+    let setup: punter::InputMap = recv_message(stream)
+        .expect("Could not parse setup message");
+
+    // let ready = protocol::ReadyP {
+    //     ready: punter.setup(setup),
+    // };
+    // send_message(stream, &ready);
 }
 
 fn main() {

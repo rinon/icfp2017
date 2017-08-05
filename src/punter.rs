@@ -96,6 +96,17 @@ impl State {
     }
 }
 
+pub struct Punter {
+    state: State,
+}
+
+// impl Punter {
+//     pub fn new(&self, input: &Input) -> PunterId {
+//         self.state.input = input;
+//         input.punter
+//     }
+// }
+
 pub fn handshake() -> protocol::HandshakeP {
     protocol::HandshakeP {
         me: String::from("test"),
