@@ -57,6 +57,7 @@ impl River {
         if site == self.source {
             self.target
         } else {
+            assert!(site == self.target);
             self.source
         }
     }
