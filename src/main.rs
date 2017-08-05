@@ -38,7 +38,10 @@ fn recv_message<T>(stream: &mut BufStream<TcpStream>) -> Result<T, serde_json::E
 {
     let mut buf = vec![];
     let _ = stream.read_until(':' as u8, &mut buf);
-    serde_json::from_reader(stream)
+    buf.pop(); // Drop colon
+    let len = String::from_utf8(buf).unwrap()
+        .parse::<u64>().unwrap();
+    serde_json::from_reader(stream.take(len))
 }
 
 fn online_game_loop(stream: &mut BufStream<TcpStream>) {
