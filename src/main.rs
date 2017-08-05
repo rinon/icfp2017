@@ -20,6 +20,7 @@ use punter::Punter;
 
 const DEFAULT_SERVER: &str = "punter.inf.ed.ac.uk";
 const DEFAULT_PORT: &str = "9001";
+const DEFAULT_NAME: &str = "random hackers";
 
 fn print_usage(program: &str, opts: Options) {
     let brief = format!("Usage: {} [options]", program);
@@ -47,18 +48,22 @@ fn recv_message<T>(stream: &mut BufStream<TcpStream>) -> Result<T, serde_json::E
     serde_json::from_reader(stream.take(len))
 }
 
-fn online_game_loop(stream: &mut BufStream<TcpStream>) {
-    send_message(stream, &punter::handshake());
+fn online_handshake(stream: &mut BufStream<TcpStream>, name: String) {
+    send_message(stream, &punter::handshake(name));
     let handshake: protocol::HandshakeS = recv_message(stream)
         .expect("Could not parse handshake response");
-    println!("Received name back: {}", handshake.you);
+    println!("Registered as: {}", handshake.you);
+}
 
+fn online_game_loop(stream: &mut BufStream<TcpStream>) {
     let setup_input: punter::Input = recv_message(stream)
         .expect("Could not parse setup message");
 
     let mut punter = Punter::new(setup_input);
+    println!("We are player {}", punter.id());
+
     let ready_msg = protocol::ReadyP {
-        ready: punter.ready(),
+        ready: punter.id(),
     };
     send_message(stream, &ready_msg);
 
@@ -85,6 +90,7 @@ fn main() {
     let mut opts = Options::new();
     opts.optopt("s", "server", "server address", "ADDRESS");
     opts.optopt("p", "port", "port", "PORT");
+    opts.optopt("n", "name", "AI name", "NAME");
     opts.optflag("h", "help", "print this help menu");
     let matches = opts.parse(&args[1..]).unwrap();
     if matches.opt_present("h") {
@@ -96,10 +102,12 @@ fn main() {
     let server = matches.opt_str("server").unwrap_or(DEFAULT_SERVER.to_string());
     let port: u16 = matches.opt_str("port").unwrap_or(DEFAULT_PORT.to_string())
         .parse().unwrap();
+    let name = matches.opt_str("name").unwrap_or(DEFAULT_NAME.to_string());
 
     println!("connecting...");
     let mut stream = BufStream::new(TcpStream::connect((&server[..], port)).unwrap());
     println!("connected");
 
+    online_handshake(&mut stream, name);
     online_game_loop(&mut stream);
 }

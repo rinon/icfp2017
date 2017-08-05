@@ -132,6 +132,10 @@ impl Punter {
         }
     }
 
+    pub fn id(&self) -> PunterId {
+        self.state.input.punter
+    }
+
     // Immutable accessor for state
     pub fn state(&self) -> &State {
         &self.state
@@ -140,10 +144,6 @@ impl Punter {
     // Mutable accessor for state
     pub fn state_mut(&mut self) -> &mut State {
         &mut self.state
-    }
-
-    pub fn ready(&self) -> PunterId {
-        self.state.input.punter
     }
 
     pub fn process_turn(&mut self, turn: protocol::TurnS) {
@@ -190,8 +190,8 @@ impl Punter {
     }
 }
 
-pub fn handshake() -> protocol::HandshakeP {
+pub fn handshake(name: String) -> protocol::HandshakeP {
     protocol::HandshakeP {
-        me: String::from("test"),
+        me: name,
     }
 }
