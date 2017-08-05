@@ -13,6 +13,7 @@ use std::io::Read;
 use std::io::Write;
 use std::io::BufRead;
 mod punter;
+mod protocol;
 
 const DEFAULT_SERVER: &str = "punter.inf.ed.ac.uk";
 const DEFAULT_PORT: &str = "9001";
@@ -22,21 +23,30 @@ fn print_usage(program: &str, opts: Options) {
     println!("{}", opts.usage(&brief));
 }
 
-fn online_game_loop(stream: &mut BufStream<TcpStream>) {
-    let mut buf = vec![];
-    let msg = serde_json::to_string(&punter::handshake())
-        .expect("Could not encode message as JSON");
-    println!("{}:{}", msg.len(), msg);
-    let _ = stream.write_all(format!("{}:{}", msg.len(), msg).as_bytes());
+fn send_message<T: ?Sized>(stream: &mut BufStream<TcpStream>, msg: &T) -> String
+    where
+    T: serde::Serialize,
+{
+    let msg_str = serde_json::to_string(msg).expect("Could not encode message as JSON");
+
+    let _ = stream.write_all(format!("{}:{}", msg_str.len(), msg_str).as_bytes());
     stream.flush().unwrap();
+
+    let mut buf = vec![];
     let _ = stream.read_until(':' as u8, &mut buf);
     buf.pop(); // Drop colon
     let len = String::from_utf8(buf.clone()).unwrap()
         .parse::<usize>().unwrap();
-    println!("{}", len);
     buf.resize(len, 0);
     stream.read_exact(&mut buf).unwrap();
-    println!("{}", String::from_utf8(buf).unwrap());
+    String::from_utf8(buf).unwrap()
+}
+
+fn online_game_loop(stream: &mut BufStream<TcpStream>) {
+    let handshake_response: protocol::HandshakeS =
+        serde_json::from_str(&send_message(stream, &punter::handshake()))
+        .expect("Could not parse handshake response");
+    println!("Received name back: {}", handshake_response.you);
 }
 
 fn main() {
