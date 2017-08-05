@@ -24,11 +24,7 @@ fn print_usage(program: &str, opts: Options) {
 
 fn online_game_loop(stream: &mut BufStream<TcpStream>) {
     let mut buf = vec![];
-
-    let msg = match serde_json::to_string(&punter::handshake()) {
-        Ok(msg) => msg,
-        Err(_) => panic!("Could not encode message as JSON"),
-    };
+    let msg = serde_json::to_string(&punter::handshake()).unwrap();
     println!("{}:{}", msg.len(), msg);
     let _ = stream.write_all(format!("{}:{}", msg.len(), msg).as_bytes());
     stream.flush().unwrap();
@@ -50,10 +46,7 @@ fn main() {
     opts.optopt("s", "server", "server address", "ADDRESS");
     opts.optopt("p", "port", "port", "PORT");
     opts.optflag("h", "help", "print this help menu");
-    let matches = match opts.parse(&args[1..]) {
-        Ok(m) => { m }
-        Err(f) => { panic!(f.to_string()) }
-    };
+    let matches = opts.parse(&args[1..]).unwrap();
     if matches.opt_present("h") {
         print_usage(&program, opts);
         return;
