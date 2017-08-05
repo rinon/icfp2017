@@ -1,6 +1,6 @@
 use punter::PunterId;
 use punter::SiteId;
-use punter::State;
+use punter::Punter;
 
 #[derive(Serialize, Deserialize, Debug)]
 pub struct HandshakeP {
@@ -32,7 +32,7 @@ pub enum TurnS {
 #[derive(Serialize, Deserialize, Debug)]
 pub struct TurnStateS {
     turn: TurnS,
-    state: State,
+    state: Punter,
 }
 
 #[derive(Serialize, Deserialize, Debug)]

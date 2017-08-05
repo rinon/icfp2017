@@ -11,18 +11,6 @@ type EdgeMatrix = HashMap<SiteId, Vec<RiverId>>;
 type ShortestPathsMap = HashMap<(SiteId, SiteId), usize>;
 
 #[derive(Serialize, Deserialize, Debug)]
-pub struct State {
-    input: Input,
-
-    // The edges represented as an incidence matrix:
-    // for every site, we keep a list of all its rivers
-    // The list of edges is sorted in increasing order of
-    // river.other_side(site)
-    edges: EdgeMatrix,
-    shortest_paths: ShortestPathsMap,
-}
-
-#[derive(Serialize, Deserialize, Debug)]
 pub struct Input {
     punter: PunterId,
     punters: PunterId,
@@ -115,8 +103,17 @@ impl Input {
     }
 }
 
+// This structure contains the entire state of a punter
+#[derive(Serialize, Deserialize, Debug)]
 pub struct Punter {
-    state: State,
+    input: Input,
+
+    // The edges represented as an incidence matrix:
+    // for every site, we keep a list of all its rivers
+    // The list of edges is sorted in increasing order of
+    // river.other_side(site)
+    edges: EdgeMatrix,
+    shortest_paths: ShortestPathsMap,
 }
 
 impl Punter {
@@ -124,26 +121,14 @@ impl Punter {
         let edges = input.compute_edges();
         let shortest_paths = input.compute_shortest_paths(&edges);
         Punter {
-            state: State {
-                input: input,
-                edges: edges,
-                shortest_paths: shortest_paths,
-            }
+            input: input,
+            edges: edges,
+            shortest_paths: shortest_paths,
         }
     }
 
     pub fn id(&self) -> PunterId {
-        self.state.input.punter
-    }
-
-    // Immutable accessor for state
-    pub fn state(&self) -> &State {
-        &self.state
-    }
-
-    // Mutable accessor for state
-    pub fn state_mut(&mut self) -> &mut State {
-        &mut self.state
+        self.input.punter
     }
 
     pub fn process_turn(&mut self, turn: protocol::TurnS) {
@@ -162,31 +147,31 @@ impl Punter {
 
     // Choose a random valid move, for now
     pub fn make_move(&self) -> protocol::Move {
-        let river_iter = self.state.input.map.rivers.iter();
+        let river_iter = self.input.map.rivers.iter();
         let mut rng = thread_rng();
         let choice = &sample(&mut rng, river_iter.filter(|x| x.owner.is_none()), 1)[0];
 
         protocol::Move::claim {
-            punter: self.state.input.punter,
+            punter: self.input.punter,
             source: choice.source,
             target: choice.target,
         }
     }
 
     fn find_river(&self, source: SiteId, target: SiteId) -> Option<RiverId> {
-        self.state.edges.get(&source).and_then(|ref rivers| {
-            rivers.binary_search_by_key(&target, |river| self.state.input.river_other_side(*river, source))
+        self.edges.get(&source).and_then(|ref rivers| {
+            rivers.binary_search_by_key(&target, |river| self.input.river_other_side(*river, source))
                   .map(|idx| rivers[idx])
                   .ok() // Result -> Option transform
         })
     }
 
     fn river(&self, id: RiverId) -> &River {
-        &self.state.input.map.rivers[id]
+        &self.input.map.rivers[id]
     }
 
     fn river_mut(&mut self, id: RiverId) -> &mut River {
-        &mut self.state.input.map.rivers[id]
+        &mut self.input.map.rivers[id]
     }
 }
 
