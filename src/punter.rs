@@ -105,12 +105,23 @@ pub struct Punter {
     state: State,
 }
 
-// impl Punter {
-//     pub fn new(&self, input: &Input) -> PunterId {
-//         self.state.input = input;
-//         input.punter
-//     }
-// }
+impl Punter {
+    pub fn new(input: Input) -> Punter {
+        Punter {
+            state: State {
+                input: input,
+            }
+        }
+    }
+
+    pub fn ready(&self) -> PunterId {
+        self.state.input.punter
+    }
+
+    // pub fn state(&self) -> State {
+    //     self.state
+    // }
+}
 
 pub fn handshake() -> protocol::HandshakeP {
     protocol::HandshakeP {

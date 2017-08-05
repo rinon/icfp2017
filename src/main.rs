@@ -14,6 +14,7 @@ use std::io::Write;
 use std::io::BufRead;
 mod punter;
 mod protocol;
+use punter::Punter;
 
 const DEFAULT_SERVER: &str = "punter.inf.ed.ac.uk";
 const DEFAULT_PORT: &str = "9001";
@@ -50,13 +51,18 @@ fn online_game_loop(stream: &mut BufStream<TcpStream>) {
         .expect("Could not parse handshake response");
     println!("Received name back: {}", handshake.you);
 
-    let setup: punter::InputMap = recv_message(stream)
+    let setup_input: punter::Input = recv_message(stream)
         .expect("Could not parse setup message");
 
-    // let ready = protocol::ReadyP {
-    //     ready: punter.setup(setup),
-    // };
-    // send_message(stream, &ready);
+    let punter = Punter::new(setup_input);
+    let ready_msg = protocol::ReadyP {
+        ready: punter.ready(),
+    };
+    // let state = punter.state();
+    send_message(stream, &ready_msg);
+    let turn: protocol::TurnS = recv_message(stream)
+        .expect("Could not parse turn");
+    println!("{:?}", turn);
 }
 
 fn main() {
