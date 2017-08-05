@@ -110,6 +110,8 @@ impl Punter {
         Punter {
             state: State {
                 input: input,
+                edges: Default::default(),
+                shortest_paths: Default::default(),
             }
         }
     }
