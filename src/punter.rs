@@ -114,16 +114,25 @@ pub struct Punter {
     // river.other_side(site)
     edges: EdgeMatrix,
     shortest_paths: ShortestPathsMap,
+
+    ai: PunterType,
+}
+
+#[derive(Serialize, Deserialize, Debug)]
+pub enum PunterType {
+    Random,
+    MCTS,
 }
 
 impl Punter {
-    pub fn new(input: Input) -> Punter {
+    pub fn new(input: Input, ai: PunterType) -> Punter {
         let edges = input.compute_edges();
         let shortest_paths = input.compute_shortest_paths(&edges);
         Punter {
             input: input,
             edges: edges,
             shortest_paths: shortest_paths,
+            ai: ai,
         }
     }
 
@@ -131,6 +140,7 @@ impl Punter {
         self.input.punter
     }
 
+    /// Add the previous turns moves into the current state
     pub fn process_turn(&mut self, turn: protocol::TurnS) {
         if let protocol::TurnS::turn { moves } = turn {
             for m in moves {
@@ -145,19 +155,44 @@ impl Punter {
         }
     }
 
-    // Choose a random valid move, for now
     pub fn make_move(&self) -> protocol::Move {
+        let play = match self.ai {
+            PunterType::Random => self.move_random(),
+            PunterType::MCTS   => self.move_mcts(),
+        };
+
+        protocol::Move::claim {
+            punter: play.punter,
+            source: play.source,
+            target: play.target,
+        }
+    }
+
+    ////////////////////////////////////////////////////////////////////////////
+    // Implemented AIs
+    ////////////////////////////////////////////////////////////////////////////
+    fn move_random(&self) -> Play {
         let river_iter = self.input.map.rivers.iter();
         let mut rng = thread_rng();
         let choice = &sample(&mut rng, river_iter.filter(|x| x.owner.is_none()), 1)[0];
-
-        protocol::Move::claim {
-            punter: self.input.punter,
+        Play {
+            punter: self.id(),
             source: choice.source,
             target: choice.target,
         }
     }
 
+    fn move_mcts(&self) -> Play {
+        Play {
+            punter: self.id(),
+            source: 0,
+            target: 0,
+        }
+    }
+
+    ////////////////////////////////////////////////////////////////////////////
+    // Utilities
+    ////////////////////////////////////////////////////////////////////////////
     fn find_river(&self, source: SiteId, target: SiteId) -> Option<RiverId> {
         self.edges.get(&source).and_then(|ref rivers| {
             rivers.binary_search_by_key(&target, |river| self.input.river_other_side(*river, source))

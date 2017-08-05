@@ -59,7 +59,7 @@ fn online_game_loop(stream: &mut BufStream<TcpStream>) {
     let setup_input: punter::Input = recv_message(stream)
         .expect("Could not parse setup message");
 
-    let mut punter = Punter::new(setup_input);
+    let mut punter = Punter::new(setup_input, punter::PunterType::Random);
     println!("We are player {}", punter.id());
 
     let ready_msg = protocol::ReadyP {
