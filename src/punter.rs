@@ -19,6 +19,22 @@ pub struct River {
     owner: Option<PunterId>,
 }
 
+impl River {
+    // Use this to build new River structures
+    pub fn new(source: SiteId, target: SiteId) -> River {
+        River {
+            source: source,
+            target: target,
+            owner:  None
+        }
+    }
+
+    // Set the owner to a punter
+    pub fn set_owner(&mut self, owner_id: PunterId) {
+        self.owner = Some(owner_id)
+    }
+}
+
 pub fn handshake() -> protocol::HandshakeP {
     protocol::HandshakeP {
         me: String::from("test"),
