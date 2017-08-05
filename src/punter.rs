@@ -1,6 +1,6 @@
 use std::collections::HashSet;
 
-use super::protocol;
+use protocol;
 
 pub type PunterId = usize;
 pub type SiteId = usize;
