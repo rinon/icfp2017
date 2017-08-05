@@ -177,7 +177,7 @@ impl Punter {
         self.state.edges.get(&source).and_then(|ref rivers| {
             rivers.binary_search_by_key(&target, |river| self.state.input.river_other_side(*river, source))
                   .map(|idx| rivers[idx])
-                  .ok()
+                  .ok() // Result -> Option transform
         })
     }
 
