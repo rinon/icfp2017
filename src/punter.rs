@@ -86,20 +86,16 @@ impl Input {
             que.push_back(mine.id);
             while let Some(site) = que.pop_front() {
                 let site_dist = shortest_paths[&(mine.id, site)];
-                let last_idx = que.len();
                 if let Some(ref neighbors) = edges.get(&site) {
-                    // Collect all yet-unseen neighbors
-                    // FIXME: would be nice if we wouldn't need to collect them
-                    // in a new vector, but Rust won't let us
-                    let new_neighbors = neighbors.iter()
-                        .map(|ridx| (mine.id, self.map.rivers[*ridx].other_side(site)))
-                        .filter(|nkey| !shortest_paths.contains_key(&nkey))
-                        .collect::<Vec<_>>();
-
-                    // Add all the new neigbors to the queue and the map
-                    let new_dist = site_dist + 1;
-                    shortest_paths.extend(new_neighbors.iter().map(|nkey| (*nkey, new_dist)));
-                    que.extend(new_neighbors.iter().map(|nkey| nkey.1));
+                    for ridx in *neighbors {
+                        let river = &self.map.rivers[*ridx];
+                        let neighbor = river.other_side(site);
+                        let neighbor_key = (mine.id, neighbor);
+                        if !shortest_paths.contains_key(&neighbor_key) {
+                            shortest_paths.insert(neighbor_key, site_dist + 1);
+                            que.push_back(neighbor);
+                        }
+                    }
                 }
             }
         }
