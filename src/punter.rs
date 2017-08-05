@@ -10,7 +10,6 @@ pub type RiverId = usize;
 #[derive(Serialize, Deserialize, Debug)]
 pub struct State {
     input: Input,
-    owners: HashMap<RiverId, PunterId>,
 }
 
 #[derive(Serialize, Deserialize, Debug)]
@@ -36,6 +35,15 @@ pub struct Site {
 pub struct River {
     source: SiteId,
     target: SiteId,
+
+    #[serde(default)]
+    owner: Option<PunterId>,
+}
+
+impl River {
+    pub fn set_owner(&mut self, punter: PunterId) {
+        self.owner = Some(punter)
+    }
 }
 
 pub fn handshake() -> protocol::HandshakeP {
