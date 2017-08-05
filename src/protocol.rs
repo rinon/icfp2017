@@ -1,5 +1,6 @@
 use punter::PunterId;
 use punter::SiteId;
+use punter::State;
 
 #[derive(Serialize, Deserialize, Debug)]
 pub struct HandshakeP {
@@ -17,43 +18,34 @@ pub struct ReadyP {
 }
 
 #[derive(Serialize, Deserialize, Debug)]
-pub struct TurnS {
+pub enum TurnS {
     // move is a reserved keyword
-    #[serde(default, rename = "move")]
-    turn: Option<Moves>,
-    #[serde(default)]
-    stop: Option<Finished>,
+    #[serde(rename = "move")]
+    turn { moves: Vec<Move> },
+
+    stop {
+        moves: Vec<Move>,
+        scores: Vec<Score>,
+    },
 }
 
 #[derive(Serialize, Deserialize, Debug)]
-pub struct Moves {
-    moves: Vec<Move>,
+pub struct TurnStateS {
+    turn: TurnS,
+    state: State,
 }
 
 #[derive(Serialize, Deserialize, Debug)]
-pub struct Finished {
-    moves: Vec<Move>,
-    scores: Vec<Score>,
-}
+pub enum Move {
+    claim {
+        punter: PunterId,
+        source: SiteId,
+        target: SiteId,
+    },
 
-#[derive(Serialize, Deserialize, Debug)]
-pub struct Move {
-    #[serde(default)]
-    claim: Option<Claim>,
-    #[serde(default)]
-    pass: Option<Pass>,
-}
-
-#[derive(Serialize, Deserialize, Debug)]
-pub struct Claim {
-    punter: PunterId,
-    source: SiteId,
-    target: SiteId,
-}
-
-#[derive(Serialize, Deserialize, Debug)]
-pub struct Pass {
-    punter: PunterId,
+    pass {
+        punter: PunterId,
+    },
 }
 
 #[derive(Serialize, Deserialize, Debug)]

@@ -1,4 +1,5 @@
 use std::collections::{HashSet, HashMap, VecDeque};
+use rand::{thread_rng, sample};
 
 use protocol;
 
@@ -137,9 +138,21 @@ impl Punter {
         self.state.input.punter
     }
 
-    // pub fn state(&self) -> State {
-    //     self.state
-    // }
+    pub fn process_turn(&self, turn: protocol::TurnS) {
+    }
+
+    // Choose a random valid move, for now
+    pub fn make_move(&self) -> protocol::Move {
+        let river_iter = self.state.input.map.rivers.iter();
+        let mut rng = thread_rng();
+        let choice = &sample(&mut rng, river_iter.filter(|x| x.owner.is_none()), 1)[0];
+
+        protocol::Move::claim {
+            punter: self.state.input.punter,
+            source: choice.source,
+            target: choice.target,
+        }
+    }
 }
 
 pub fn handshake() -> protocol::HandshakeP {

@@ -5,6 +5,8 @@ extern crate getopts;
 extern crate bufstream;
 extern crate serde;
 extern crate serde_json;
+extern crate rand;
+
 use getopts::Options;
 use std::env;
 use std::net::TcpStream;
@@ -58,11 +60,22 @@ fn online_game_loop(stream: &mut BufStream<TcpStream>) {
     let ready_msg = protocol::ReadyP {
         ready: punter.ready(),
     };
-    // let state = punter.state();
     send_message(stream, &ready_msg);
-    let turn: protocol::TurnS = recv_message(stream)
-        .expect("Could not parse turn");
-    println!("{:?}", turn);
+
+    while true {
+        let turn: protocol::TurnS = recv_message(stream)
+            .expect("Could not parse turn");
+        println!("{:?}", turn);
+        if let protocol::TurnS::stop{moves, scores} = turn {
+            println!("Done with game. Scores: {:?}", scores);
+            break;
+        }
+
+        punter.process_turn(turn);
+        let next_move = punter.make_move();
+        println!("{:?}", next_move);
+        send_message(stream, &next_move);
+    }
 }
 
 fn main() {
