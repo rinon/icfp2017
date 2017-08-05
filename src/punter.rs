@@ -119,6 +119,11 @@ impl Punter {
         }
     }
 
+    // Immutable accessor for state
+    pub fn state(&self) -> &State {
+        &self.state
+    }
+
     // Mutable accessor for state
     pub fn state_mut(&mut self) -> &mut State {
         &mut self.state
