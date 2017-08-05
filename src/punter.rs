@@ -5,6 +5,7 @@ use protocol;
 pub type PunterId = usize;
 pub type SiteId = usize;
 
+#[derive(Debug)]
 pub struct State {
     punter_id: PunterId,
     punters: PunterId,
@@ -13,6 +14,7 @@ pub struct State {
     mines: HashSet<SiteId>,
 }
 
+#[derive(Debug)]
 pub struct River {
     source: SiteId,
     target: SiteId,
