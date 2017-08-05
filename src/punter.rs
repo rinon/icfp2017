@@ -6,14 +6,17 @@ pub type PunterId = usize;
 pub type SiteId = usize;
 pub type RiverId = usize;
 
+type EdgeMatrix = HashMap<SiteId, Vec<RiverId>>;
+type ShortestPathsMap = HashMap<(SiteId, SiteId), usize>;
+
 #[derive(Serialize, Deserialize, Debug)]
 pub struct State {
     input: Input,
 
     // The edges represented as an incidence matrix:
     // for every site, we keep a list of all its rivers
-    edges: HashMap<SiteId, Vec<RiverId>>,
-    shortest_paths: HashMap<(SiteId, SiteId), usize>,
+    edges: EdgeMatrix,
+    shortest_paths: ShortestPathsMap,
 }
 
 #[derive(Serialize, Deserialize, Debug)]
@@ -58,47 +61,44 @@ impl River {
     }
 }
 
-impl State {
+impl Input {
     // Construct the incidence matrix for the graph
-    pub fn compute_edges(&mut self) {
-        if !self.edges.is_empty() {
-            return
+    fn compute_edges(&self) -> EdgeMatrix {
+        let mut edges = EdgeMatrix::new();
+        for (idx, ref river) in self.map.rivers.iter().enumerate() {
+            edges.entry(river.source).or_insert_with(|| vec![]).push(idx);
+            edges.entry(river.target).or_insert_with(|| vec![]).push(idx);
         }
-        for (idx, ref river) in self.input.map.rivers.iter().enumerate() {
-            self.edges.entry(river.source).or_insert_with(|| vec![]).push(idx);
-            self.edges.entry(river.target).or_insert_with(|| vec![]).push(idx);
-        }
+        edges
     }
 
-    pub fn compute_shortest_paths(&mut self) {
-        if !self.shortest_paths.is_empty() {
-            return
-        }
-        self.compute_edges();
+    fn compute_shortest_paths(&self, edges: &EdgeMatrix) -> ShortestPathsMap {
         // Since all edges have the same length of 1,
         // we can compute the shortest path using a simple
         // breadth-first search algorithm; for every mine,
         // we visit all sites exactly once.
-        let mut que: VecDeque<SiteId> = VecDeque::with_capacity(self.input.map.sites.len());
-        for mine in &self.input.map.sites {
-            self.shortest_paths.insert((mine.id, mine.id), 0);
+        let mut shortest_paths = ShortestPathsMap::new();
+        let mut que: VecDeque<SiteId> = VecDeque::with_capacity(self.map.sites.len());
+        for mine in &self.map.sites {
+            shortest_paths.insert((mine.id, mine.id), 0);
             que.clear();
             que.push_back(mine.id);
             while let Some(site) = que.pop_front() {
-                let site_dist = self.shortest_paths[&(mine.id, site)];
-                if let Some(ref neighbors) = self.edges.get(&site) {
+                let site_dist = shortest_paths[&(mine.id, site)];
+                if let Some(ref neighbors) = edges.get(&site) {
                     for ridx in *neighbors {
-                        let river = &self.input.map.rivers[*ridx];
+                        let river = &self.map.rivers[*ridx];
                         let neighbor = river.other_side(site);
                         let neighbor_key = (mine.id, neighbor);
-                        if !self.shortest_paths.contains_key(&neighbor_key) {
-                            self.shortest_paths.insert(neighbor_key, site_dist + 1);
+                        if !shortest_paths.contains_key(&neighbor_key) {
+                            shortest_paths.insert(neighbor_key, site_dist + 1);
                             que.push_back(neighbor);
                         }
                     }
                 }
             }
         }
+        shortest_paths
     }
 }
 
@@ -108,11 +108,13 @@ pub struct Punter {
 
 impl Punter {
     pub fn new(input: Input) -> Punter {
+        let edges = input.compute_edges();
+        let shortest_paths = input.compute_shortest_paths(&edges);
         Punter {
             state: State {
                 input: input,
-                edges: Default::default(),
-                shortest_paths: Default::default(),
+                edges: edges,
+                shortest_paths: shortest_paths,
             }
         }
     }

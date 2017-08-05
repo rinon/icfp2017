@@ -55,7 +55,6 @@ fn online_game_loop(stream: &mut BufStream<TcpStream>) {
         .expect("Could not parse setup message");
 
     let mut punter = Punter::new(setup_input);
-    punter.state_mut().compute_shortest_paths();
     let ready_msg = protocol::ReadyP {
         ready: punter.ready(),
     };
