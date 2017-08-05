@@ -74,6 +74,7 @@ impl State {
         if !self.shortest_paths.is_empty() {
             return
         }
+        self.compute_edges();
         // Since all edges have the same length of 1,
         // we can compute the shortest path using a simple
         // breadth-first search algorithm; for every mine,
