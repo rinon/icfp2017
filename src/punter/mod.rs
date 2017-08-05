@@ -6,6 +6,8 @@ type PunterId = usize;
 type SiteId = usize;
 
 pub struct State {
+    punter_id: PunterId,
+    punters: PunterId,
     rivers: Vec<River>,
     mines: HashSet<SiteId>,
 }
