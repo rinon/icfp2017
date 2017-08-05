@@ -10,7 +10,8 @@ pub type RiverId = usize;
 pub struct State {
     input: Input,
 
-    // The edges represented as an incidence matrix
+    // The edges represented as an incidence matrix:
+    // for every site, we keep a list of all its rivers
     edges: HashMap<SiteId, Vec<RiverId>>,
     shortest_paths: HashMap<(SiteId, SiteId), usize>,
 }
@@ -73,6 +74,10 @@ impl State {
         if !self.shortest_paths.is_empty() {
             return
         }
+        // Since all edges have the same length of 1,
+        // we can compute the shortest path using a simple
+        // breadth-first search algorithm; for every mine,
+        // we visit all sites exactly once.
         let mut que: VecDeque<SiteId> = VecDeque::with_capacity(self.input.map.sites.len());
         for mine in &self.input.map.sites {
             self.shortest_paths.insert((mine.id, mine.id), 0);
