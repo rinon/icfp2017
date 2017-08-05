@@ -117,6 +117,11 @@ impl Punter {
         }
     }
 
+    // Mutable accessor for state
+    pub fn state_mut(&mut self) -> &mut State {
+        &mut self.state
+    }
+
     pub fn ready(&self) -> PunterId {
         self.state.input.punter
     }
