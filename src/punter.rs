@@ -135,7 +135,18 @@ impl Punter {
         self.state.input.punter
     }
 
-    pub fn process_turn(&self, turn: protocol::TurnS) {
+    pub fn process_turn(&mut self, turn: protocol::TurnS) {
+        if let protocol::TurnS::turn { moves } = turn {
+            for m in moves {
+                match m {
+                    protocol::Move::claim {punter, source, target} => {
+                        let id = self.find_river(source, target).unwrap();
+                        self.river_mut(id).set_owner(punter);
+                    }
+                    protocol::Move::pass { punter } => { }
+                }
+            }
+        }
     }
 
     // Choose a random valid move, for now
@@ -149,6 +160,25 @@ impl Punter {
             source: choice.source,
             target: choice.target,
         }
+    }
+
+    fn find_river(&self, source: SiteId, target: SiteId) -> Option<RiverId> {
+        self.state.edges.get(&source).and_then(|rivers| {
+            for id in rivers {
+                if self.river(id.clone()).other_side(source) == target {
+                    return Some(id.clone());
+                }
+            }
+            return None;
+        })
+    }
+
+    fn river(&self, id: RiverId) -> &River {
+        &self.state.input.map.rivers[id]
+    }
+
+    fn river_mut(&mut self, id: RiverId) -> &mut River {
+        &mut self.state.input.map.rivers[id]
     }
 }
 
