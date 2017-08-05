@@ -80,17 +80,17 @@ impl Input {
         // we visit all sites exactly once.
         let mut shortest_paths = ShortestPathsMap::new();
         let mut que: VecDeque<SiteId> = VecDeque::with_capacity(self.map.sites.len());
-        for mine in &self.map.sites {
-            shortest_paths.insert((mine.id, mine.id), 0);
+        for mine in &self.map.mines {
+            shortest_paths.insert((*mine, *mine), 0);
             que.clear();
-            que.push_back(mine.id);
+            que.push_back(*mine);
             while let Some(site) = que.pop_front() {
-                let site_dist = shortest_paths[&(mine.id, site)];
+                let site_dist = shortest_paths[&(*mine, site)];
                 if let Some(ref neighbors) = edges.get(&site) {
                     for ridx in *neighbors {
                         let river = &self.map.rivers[*ridx];
                         let neighbor = river.other_side(site);
-                        let neighbor_key = (mine.id, neighbor);
+                        let neighbor_key = (*mine, neighbor);
                         if !shortest_paths.contains_key(&neighbor_key) {
                             shortest_paths.insert(neighbor_key, site_dist + 1);
                             que.push_back(neighbor);
