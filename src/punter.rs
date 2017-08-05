@@ -1,40 +1,41 @@
 use std::collections::HashSet;
+use std::collections::HashMap;
 
 use protocol;
 
 pub type PunterId = usize;
 pub type SiteId = usize;
+pub type RiverId = usize;
 
-#[derive(Debug)]
+#[derive(Serialize, Deserialize, Debug)]
 pub struct State {
-    punter_id: PunterId,
+    input: Input,
+    owners: HashMap<RiverId, PunterId>,
+}
+
+#[derive(Serialize, Deserialize, Debug)]
+pub struct Input {
+    punter: PunterId,
     punters: PunterId,
-    sites: HashSet<SiteId>,
+    map: InputMap,
+}
+
+#[derive(Serialize, Deserialize, Debug)]
+pub struct InputMap {
+    sites: HashSet<Site>,
     rivers: Vec<River>,
     mines: HashSet<SiteId>,
 }
 
-#[derive(Debug)]
+#[derive(Serialize, Deserialize, Debug, Hash, PartialEq, Eq)]
+pub struct Site {
+    id: SiteId,
+}
+
+#[derive(Serialize, Deserialize, Debug)]
 pub struct River {
     source: SiteId,
     target: SiteId,
-    owner: Option<PunterId>,
-}
-
-impl River {
-    // Use this to build new River structures
-    pub fn new(source: SiteId, target: SiteId) -> River {
-        River {
-            source: source,
-            target: target,
-            owner:  None
-        }
-    }
-
-    // Set the owner to a punter
-    pub fn set_owner(&mut self, owner_id: PunterId) {
-        self.owner = Some(owner_id)
-    }
 }
 
 pub fn handshake() -> protocol::HandshakeP {
