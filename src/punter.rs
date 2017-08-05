@@ -7,9 +7,13 @@ pub type PunterId = usize;
 pub type SiteId = usize;
 pub type RiverId = usize;
 
+#[derive(Serialize, Deserialize, Debug, Hash, PartialEq, Eq)]
+pub struct SitePair(SiteId, SiteId);
+
 #[derive(Serialize, Deserialize, Debug)]
 pub struct State {
     input: Input,
+    shortest_paths: HashMap<SitePair, usize>,
 }
 
 #[derive(Serialize, Deserialize, Debug)]
