@@ -2,8 +2,8 @@ use std::collections::HashSet;
 
 use super::protocol;
 
-type PunterId = usize;
-type SiteId = usize;
+pub type PunterId = usize;
+pub type SiteId = usize;
 
 pub struct State {
     punter_id: PunterId,
