@@ -16,6 +16,8 @@ pub struct State {
 
     // The edges represented as an incidence matrix:
     // for every site, we keep a list of all its rivers
+    // The list of edges is sorted in increasing order of
+    // river.other_side(site)
     edges: EdgeMatrix,
     shortest_paths: ShortestPathsMap,
 }
@@ -64,12 +66,21 @@ impl River {
 }
 
 impl Input {
+    // Helper function used by the binary search and sort
+    fn river_other_side(&self, river: RiverId, site: SiteId) -> SiteId {
+        self.map.rivers[river].other_side(site)
+    }
+
     // Construct the incidence matrix for the graph
     fn compute_edges(&self) -> EdgeMatrix {
         let mut edges = EdgeMatrix::new();
         for (idx, ref river) in self.map.rivers.iter().enumerate() {
             edges.entry(river.source).or_insert_with(|| vec![]).push(idx);
             edges.entry(river.target).or_insert_with(|| vec![]).push(idx);
+        }
+        // Sort the edges of each site by the id of the other side
+        for (site, ref mut site_edges) in edges.iter_mut() {
+            site_edges.sort_by_key(|river| self.river_other_side(*river, *site));
         }
         edges
     }
@@ -163,13 +174,10 @@ impl Punter {
     }
 
     fn find_river(&self, source: SiteId, target: SiteId) -> Option<RiverId> {
-        self.state.edges.get(&source).and_then(|rivers| {
-            for id in rivers {
-                if self.river(id.clone()).other_side(source) == target {
-                    return Some(id.clone());
-                }
-            }
-            return None;
+        self.state.edges.get(&source).and_then(|ref rivers| {
+            rivers.binary_search_by_key(&target, |river| self.state.input.river_other_side(*river, source))
+                  .map(|idx| rivers[idx])
+                  .ok()
         })
     }
 
