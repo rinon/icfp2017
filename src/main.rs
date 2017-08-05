@@ -24,7 +24,8 @@ fn print_usage(program: &str, opts: Options) {
 
 fn online_game_loop(stream: &mut BufStream<TcpStream>) {
     let mut buf = vec![];
-    let msg = serde_json::to_string(&punter::handshake()).unwrap();
+    let msg = serde_json::to_string(&punter::handshake())
+        .expect("Could not encode message as JSON");
     println!("{}:{}", msg.len(), msg);
     let _ = stream.write_all(format!("{}:{}", msg.len(), msg).as_bytes());
     stream.flush().unwrap();
