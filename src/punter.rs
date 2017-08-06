@@ -392,12 +392,6 @@ impl<'a, A: GameAction> MCTSNode<A> {
 
     /// Select and return the "best" child
     fn select(&mut self, g: &mut Game<A>, c: f64) -> Option<Rc<RefCell<MCTSNode<A>>>> {
-        // let root_best_child = self.select_best_child(c);
-        // g.make_move(&root_best_child.borrow().play.unwrap());
-        // if root_best_child.borrow().is_leaf() {
-        //     return Some(root_best_child.clone());
-        // }
-
         let mut prev_rc = None;
         let mut node_rc = match self.status {
             NodeStatus::Done => None,
@@ -437,26 +431,10 @@ impl<'a, A: GameAction> MCTSNode<A> {
                 }
             }
         }
-            // if node_best_child.borrow().is_leaf() {
-            //     return Some(node_best_child.clone());
-            // }
-        // g.make_move(&best_child.borrow().play.unwrap());
-        // match best_child.borrow_mut().select(g, c) {
-        //     Some(child) => Some(child),
-        //     None => Some(best_child.clone()),
-        // }
     }
 
     /// Expand and return a new child of this node.
     fn expand(&mut self, g: &Game<A>) -> Option<Rc<RefCell<MCTSNode<A>>>> {
-        // if self.is_leaf() {
-        //     // Special case: we're expanding a leaf
-        //     let mut rng = thread_rng();
-        //     let moves_vec = g.available_actions();
-        //     let new_child_move = rng.choose(&moves_vec);
-        //     let new_node = Rc::new(RefCell::new(MCTSNode::new(new_child_move.map(|x| *x))));
-        //     self.children.push(new_node.clone());
-        //     return Some(new_node.clone());
         let moves = HashSet::from_iter(g.available_actions());
         if moves.len() == 0 {
             self.status = NodeStatus::Done;
