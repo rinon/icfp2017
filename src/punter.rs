@@ -406,9 +406,9 @@ impl<'a, A: GameAction> MCTSNode<A> {
                     match status {
                         NodeStatus::Done => return Some(n.clone()),
                         NodeStatus::Expandable => return Some(n.clone()),
-                        NodeStatus::Expanded => node_rc = node.select_UCT(c),
                         NodeStatus::Expanded => {
                             node_rc = node.select_uct(c);
+                            prev_rc = Some(n.clone());
                         }
                     };
                 }
