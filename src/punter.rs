@@ -385,11 +385,9 @@ impl<'a, A: GameAction> MCTSNode<A> {
     /// Expand and return a new child of this node.
     fn expand(&mut self, g: &Game<A>) -> Option<Rc<RefCell<MCTSNode<A>>>> {
         let moves = HashSet::from_iter(g.available_actions());
-        let mut expanded_moves = HashSet::new();
-        for child in &self.children {
-            expanded_moves.insert(child.borrow().play.unwrap());
-        }
-
+        let expanded_moves = self.children.iter()
+            .map(|ref child| child.borrow().play.unwrap())
+            .collect::<HashSet<_>>();
         let available_moves = &moves - &expanded_moves;
         if available_moves.len() == 0 {
             self.status = NodeStatus::Done;
