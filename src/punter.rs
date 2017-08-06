@@ -409,9 +409,17 @@ impl<'a, A: GameAction> MCTSNode<A> {
 
     /// Expand and return a new child of this node.
     fn expand(&mut self, g: &Game<A>) -> Option<Rc<RefCell<MCTSNode<A>>>> {
+        if self.is_leaf() {
+            // Special case: we're expanding a leaf
+            let mut rng = thread_rng();
+            let moves_vec = g.available_actions();
+            let new_child_move = rng.choose(&moves_vec);
+            let new_node = Rc::new(RefCell::new(MCTSNode::new(new_child_move.map(|x| *x))));
+            self.children.push(new_node.clone());
+            return Some(new_node.clone());
+        }
+
         let moves = HashSet::from_iter(g.available_actions());
-        // FIXME: since we're only expanding one leaf node,
-        // isn't expanded_moves always empty???
         let expanded_moves = self.children.iter()
             .map(|ref child| child.borrow().play.unwrap())
             .collect::<HashSet<_>>();
