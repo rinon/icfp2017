@@ -229,6 +229,8 @@ impl Punter {
 
     fn move_mcts(&self) -> Play {
         let now = Instant::now();
+        // FIXME: c seems wrong here: if we include 2 in the sqrt here,
+        // then c here should be 1.0, since 1.4 is actually sqrt(2)
         let mut mcts = MCTS::new(self, 1.4);
         let mut iterations = 0;
         while now.elapsed() < Duration::from_millis(900) {
