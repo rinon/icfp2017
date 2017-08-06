@@ -51,5 +51,5 @@ pub enum Move {
 #[derive(Serialize, Deserialize, Debug)]
 pub struct Score {
     punter: PunterId,
-    score: usize,
+    score: isize,
 }
