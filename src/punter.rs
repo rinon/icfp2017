@@ -458,9 +458,10 @@ impl<'a> MCTS<'a> {
         let mut leaf = self.root.borrow().select(&mut game, self.c).unwrap_or(self.root.clone());
         let new_child = leaf.borrow_mut().expand(&mut game);
         if let Some(child) = new_child {
-            child.borrow_mut().parent = Some(Rc::downgrade(&leaf));
-            let score = child.borrow().simulate(&mut game);
-            child.borrow_mut().backpropagate(score);
+            let mut child_ref = child.borrow_mut();
+            child_ref.parent = Some(Rc::downgrade(&leaf));
+            let score = child_ref.simulate(&mut game);
+            child_ref.backpropagate(score);
         }
     }
 
