@@ -443,13 +443,14 @@ impl<'a, A: GameAction> MCTSNode<A> {
 
     fn best_move(&self) -> A {
         let mut best = self.play;
-        let mut best_count = 0.;
+        let mut best_value = 0.;
         for child in &self.children {
             let child_ref = child.borrow();
             // TODO: shouldn't the value here be something like
             // child.score/child.count (average score)
-            if child_ref.count > best_count {
-                best_count = child_ref.count;
+            let child_value = child_ref.count;
+            if child_value > best_value {
+                best_value = child_value;
                 best = child_ref.play;
             }
         }
