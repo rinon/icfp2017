@@ -1,3 +1,4 @@
+#![allow(non_camel_case_types)]
 use punter::PunterId;
 use punter::SiteId;
 use punter::Punter;

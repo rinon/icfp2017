@@ -11,9 +11,9 @@ use getopts::Options;
 use std::env;
 use std::net::TcpStream;
 use bufstream::BufStream;
-use std::io::Read;
-use std::io::Write;
-use std::io::BufRead;
+use std::io::{Read, Write, BufRead};
+use std::time::Instant;
+
 mod punter;
 mod protocol;
 use punter::Punter;
@@ -67,7 +67,7 @@ fn online_game_loop(stream: &mut BufStream<TcpStream>) {
     };
     send_message(stream, &ready_msg);
 
-    while true {
+    loop {
         let turn: protocol::TurnS = recv_message(stream)
             .expect("Could not parse turn");
         if let protocol::TurnS::timeout (_) = turn {
@@ -75,7 +75,7 @@ fn online_game_loop(stream: &mut BufStream<TcpStream>) {
             continue;
         };
         println!("{:?}", turn);
-        if let protocol::TurnS::stop{moves, scores} = turn {
+        if let protocol::TurnS::stop{scores, moves: _} = turn {
             println!("Done with game. Scores: {:?}", scores);
             break;
         }
@@ -108,11 +108,9 @@ fn main() {
         .parse().unwrap();
     let name = matches.opt_str("name").unwrap_or(DEFAULT_NAME.to_string());
 
-    println!("connecting...");
-    let mut connection = TcpStream::connect((&server[..], port))
+    let connection = TcpStream::connect((&server[..], port))
         .expect("Connection refused!");
     let mut stream = BufStream::new(connection);
-    println!("connected");
 
     online_handshake(&mut stream, name);
     online_game_loop(&mut stream);

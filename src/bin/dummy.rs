@@ -1,6 +1,3 @@
-#[macro_use]
-extern crate serde_derive;
-
 extern crate getopts;
 extern crate bufstream;
 extern crate serde;
@@ -18,7 +15,7 @@ fn main() {
     let turn: protocol::TurnS = serde_json::from_str("{\"move\":{\"moves\":[{\"claim\":{\"punter\":0,\"source\":3,\"target\":5}},{\"pass\":{\"punter\":1}}]}}")
         .expect("Could not parse turn");
     println!("{:?}", turn);
-    if let protocol::TurnS::stop{moves, scores} = turn {
+    if let protocol::TurnS::stop{scores, moves: _} = turn {
         println!("Done with game. Scores: {:?}", scores);
         return;
     }

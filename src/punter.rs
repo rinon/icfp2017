@@ -254,6 +254,7 @@ impl Punter {
         })
     }
 
+    #[allow(dead_code)]
     fn river(&self, id: RiverId) -> &River {
         &self.input.map.rivers[id]
     }
@@ -368,11 +369,7 @@ impl<'a, A: GameAction> MCTSNode<A> {
         }
     }
 
-    fn is_leaf(&self) -> bool {
-        self.children.len() == 0
-    }
-
-    fn select_UCT(&self, c: f64) -> Option<Rc<RefCell<MCTSNode<A>>>> {
+    fn select_uct(&self, c: f64) -> Option<Rc<RefCell<MCTSNode<A>>>> {
         // We must be fully expanded, select a child based on UCT1
         if self.children.len() == 0 {
             return None;
@@ -396,20 +393,23 @@ impl<'a, A: GameAction> MCTSNode<A> {
         let mut node_rc = match self.status {
             NodeStatus::Done => None,
             NodeStatus::Expandable => None,
-            NodeStatus::Expanded => self.select_UCT(c),
+            NodeStatus::Expanded => self.select_uct(c),
         };
 
         loop {
             match node_rc {
                 None => return prev_rc,
                 Some(n) => {
-                    let mut node = n.borrow_mut();
+                    let node = n.borrow_mut();
                     g.make_move(&node.play.unwrap());
                     let status = node.status;
                     match status {
                         NodeStatus::Done => return Some(n.clone()),
                         NodeStatus::Expandable => return Some(n.clone()),
                         NodeStatus::Expanded => node_rc = node.select_UCT(c),
+                        NodeStatus::Expanded => {
+                            node_rc = node.select_uct(c);
+                        }
                     };
                 }
             }
@@ -504,7 +504,7 @@ impl<'a> MCTS<'a> {
 
     fn step(&mut self) {
         let mut game = InternalGameState::new(self.punter);
-        let mut leaf = self.root.borrow_mut().select(&mut game, self.c).unwrap_or(self.root.clone());
+        let leaf = self.root.borrow_mut().select(&mut game, self.c).unwrap_or(self.root.clone());
         let new_child = leaf.borrow_mut().expand(&mut game);
         if let Some(child) = new_child {
             let mut child_ref = child.borrow_mut();
