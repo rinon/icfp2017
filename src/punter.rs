@@ -228,11 +228,12 @@ impl Punter {
     }
 
     fn move_mcts(&self) -> Play {
-        Play {
-            punter: self.id(),
-            source: 0,
-            target: 0,
+        let now = Instant::now();
+        let mut mcts = MCTS::new(self, 1.4);
+        while now.elapsed() < Duration::from_millis(900) {
+            mcts.step();
         }
+        mcts.best_move()
     }
 
     ////////////////////////////////////////////////////////////////////////////
@@ -252,6 +253,213 @@ impl Punter {
 
     fn river_mut(&mut self, id: RiverId) -> &mut River {
         &mut self.input.map.rivers[id]
+    }
+}
+
+#[derive(Debug, Clone, Copy, Hash, PartialEq, Eq)]
+struct Play {
+    punter: PunterId,
+    source: SiteId,
+    target: SiteId,
+}
+
+impl Play {
+    fn new(river: &River, punter: PunterId) -> Play {
+        Play {
+            punter: punter,
+            source: river.source,
+            target: river.target,
+        }
+    }
+}
+
+impl GameAction for Play {}
+
+struct InternalGameState<'a> {
+    rivers: Vec<River>,
+    current_punter: PunterId,
+    state: &'a Punter,
+}
+
+impl<'a> InternalGameState<'a> {
+    fn new(state: &'a Punter) -> InternalGameState {
+        InternalGameState {
+            rivers: state.input.map.rivers.clone(),
+            current_punter: state.id(),
+            state: state,
+        }
+    }
+}
+
+impl<'a> Game<Play> for InternalGameState<'a> {
+    fn available_actions(&self) -> Vec<Play> {
+        self.rivers.iter()
+            .filter(|x| x.owner.is_none())
+            .map(|x| Play::new(x, self.current_punter)).collect()
+    }
+
+    fn make_move(&mut self, action: &Play) {
+        self.rivers[self.state.find_river(action.source, action.target).unwrap()].set_owner(action.punter);
+        self.current_punter = (self.current_punter + 1) % self.state.input.punters;
+    }
+
+    fn score(&self) -> f64 {
+        let scores = self.state.score(&self.rivers);
+        let my_score = scores[self.state.id()];
+        let mut total: f64 = 0.;
+        for (i, score) in scores.iter().enumerate() {
+            if i != self.state.id() {
+                total += (my_score - score) as f64;
+            }
+        }
+        total / (scores.len() - 1) as f64
+    }
+}
+
+
+enum NodeStatus {
+    Done, Expanded, Expandable,
+}
+
+struct MCTSNode<A> {
+    play: Option<A>,
+    children: Vec<Rc<RefCell<MCTSNode<A>>>>,
+    parent: Option<Weak<RefCell<MCTSNode<A>>>>,
+    status: NodeStatus,
+    score: f64,
+    count: f64,
+}
+
+pub trait GameAction: Debug+Clone+Copy+Eq+Hash {}
+
+trait Game<A: GameAction> {
+    fn available_actions(&self) -> Vec<A>;
+
+    fn make_move(&mut self, action: &A);
+
+    fn score(&self) -> f64;
+}
+
+impl<'a, A: GameAction> MCTSNode<A> {
+    fn new(play: Option<A>) -> MCTSNode<A> {
+        MCTSNode::<A> {
+            play: play,
+            children: Vec::new(),
+            parent: None,
+            status: NodeStatus::Expandable,
+            score: 0.,
+            count: 0.,
+        }
+    }
+
+    /// Select and return the "best" child
+    fn select(&self, g: &mut Game<A>, c: f64) -> Rc<RefCell<MCTSNode<A>>> {
+        let mut best_value = NEG_INFINITY;
+        let mut best_child = &self.children[0];
+
+        for child_ref in &self.children {
+            let child = child_ref.borrow();
+            let value = child.score / child.count + c*(2.*self.count.ln()/child.count).sqrt();
+            if value > best_value {
+                best_value = value;
+                best_child = child_ref;
+            }
+        }
+        g.make_move(&best_child.borrow().play.unwrap());
+        if best_child.borrow().children.len() == 0 {
+            return best_child.clone();
+        } else {
+            return best_child.borrow().select(g, c);
+        }
+    }
+
+    /// Expand and return a new child of this node.
+    fn expand(&mut self, g: &Game<A>) -> Option<Rc<RefCell<MCTSNode<A>>>> {
+        let moves = HashSet::from_iter(g.available_actions());
+        let mut expanded_moves = HashSet::new();
+        for child in &self.children {
+            expanded_moves.insert(child.borrow().play.unwrap());
+        }
+
+        let available_moves = &moves - &expanded_moves;
+        if available_moves.len() == 0 {
+            self.status = NodeStatus::Done;
+            return None;
+        }
+        let mut rng = thread_rng();
+        let moves_vec = &available_moves.into_iter().collect::<Vec<A>>();
+        let new_child_move = rng.choose(moves_vec);
+        let new_node = Rc::new(RefCell::new(MCTSNode::new(new_child_move.map(|x| *x))));
+        self.children.push(new_node.clone());
+        Some(new_node.clone())
+    }
+
+    /// Run a simulation from this node with the given game state. Currently a
+    /// pure Monte Carlo simulation.
+    fn simulate(&self, g: &mut Game<A>) -> f64 {
+        let mut rng = thread_rng();
+        while g.available_actions().len() > 0 {
+            let choices = g.available_actions();
+            g.make_move(rng.choose(&choices).unwrap());
+        }
+        g.score()
+    }
+
+    fn backpropagate(&mut self, score: f64) {
+        self.count += 1.;
+        self.score += score;
+        let mut cur_node = self.parent.clone();
+        loop {
+            match cur_node {
+                Some(weak_ref) => {
+                    let node = weak_ref.upgrade().unwrap();
+                    node.borrow_mut().count += 1.;
+                    node.borrow_mut().score += score;
+                    cur_node = match node.borrow().parent {
+                        Some(ref node_ref) => Some(node_ref.clone()),
+                        None => None,
+                    };
+                },
+                None => break
+            }
+        }
+    }
+}
+
+struct MCTS<'a> {
+    punter: &'a Punter,
+    root: MCTSNode<Play>,
+    c: f64,
+}
+
+impl<'a> MCTS<'a> {
+    fn new(punter: &Punter, c: f64) -> MCTS {
+        MCTS {
+            punter: punter,
+            root: MCTSNode::new(None),
+            c: c,
+        }
+    }
+
+    fn step(&mut self) {
+        let mut game = InternalGameState::new(self.punter);
+        let mut leaf = self.root.select(&mut game, self.c);
+        match leaf.borrow_mut().expand(&mut game) {
+            Some(child) => {
+                child.borrow_mut().parent = Some(Rc::downgrade(&leaf));
+                let score = child.borrow().simulate(&mut game);
+                child.borrow_mut().backpropagate(score);
+            },
+            None => return,
+        };
+    }
+
+    fn best_move(&self) -> Play {
+        Play {
+            punter: self.punter.id(),
+            source: 0,
+            target: 0,
+        }
     }
 }
 
