@@ -70,6 +70,13 @@ fn online_game_loop(stream: &mut BufStream<TcpStream>) {
     while true {
         let turn: protocol::TurnS = recv_message(stream)
             .expect("Could not parse turn");
+        match turn {
+            protocol::TurnS::timeout ( _ ) => {
+                println!("Timout!");
+                continue;
+            },
+            _ => {}
+        }
         println!("{:?}", turn);
         if let protocol::TurnS::stop{moves, scores} = turn {
             println!("Done with game. Scores: {:?}", scores);
