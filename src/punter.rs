@@ -395,14 +395,7 @@ impl<'a, A: GameAction> MCTSNode<A> {
         let mut prev_rc = None;
         let mut node_rc = match self.status {
             NodeStatus::Done => None,
-            NodeStatus::Expandable => {
-                let child = self.expand(g);
-                if child.is_some() {
-                    child
-                } else {
-                    self.select_UCT(c)
-                }
-            },
+            NodeStatus::Expandable => None,
             NodeStatus::Expanded => self.select_UCT(c),
         };
 
@@ -414,24 +407,23 @@ impl<'a, A: GameAction> MCTSNode<A> {
                     g.make_move(&node.play.unwrap());
                     let status = node.status;
                     match status {
-                        NodeStatus::Done => return prev_rc,
-                        NodeStatus::Expandable => {
-                            let new_child = node.expand(g);
-                            match new_child {
-                                None =>
-                                    node_rc = node.select_UCT(c),
-                                Some(child_rc) => {
-                                    {
-                                        let mut child = child_rc.borrow_mut();
-                                        g.make_move(&child.play.unwrap());
-                                        child.parent = Some(Rc::downgrade(&n));
-                                    }
-                                    return Some(child_rc);
-                                },
-                            }
-                        },
-                        NodeStatus::Expanded =>
-                            node_rc = node.select_UCT(c),
+                        NodeStatus::Done => return Some(n.clone()),
+                        NodeStatus::Expandable => return Some(n.clone()),// {
+                        //     let new_child = node.expand(g);
+                        //     match new_child {
+                        //         None =>
+                        //             node_rc = node.select_UCT(c),
+                        //         Some(child_rc) => {
+                        //             {
+                        //                 let mut child = child_rc.borrow_mut();
+                        //                 g.make_move(&child.play.unwrap());
+                        //                 child.parent = Some(Rc::downgrade(&n));
+                        //             }
+                        //             return Some(child_rc);
+                        //         },
+                        //     }
+                        // },
+                        NodeStatus::Expanded => node_rc = node.select_UCT(c),
                     };
                 }
             }
@@ -440,6 +432,7 @@ impl<'a, A: GameAction> MCTSNode<A> {
 
     /// Expand and return a new child of this node.
     fn expand(&mut self, g: &Game<A>) -> Option<Rc<RefCell<MCTSNode<A>>>> {
+        // println!("Expanding: {:#?}", self);
         let moves = HashSet::from_iter(g.available_actions());
         if moves.len() == 0 {
             self.status = NodeStatus::Done;
@@ -450,10 +443,13 @@ impl<'a, A: GameAction> MCTSNode<A> {
             .map(|ref child| child.borrow().play.unwrap())
             .collect::<HashSet<_>>();
         let available_moves = &moves - &expanded_moves;
-        if available_moves.len() == 0 {
+
+        // Set status to fully expanded if expanding the last available move
+        if available_moves.len() == 1 {
             self.status = NodeStatus::Expanded;
-            return None;
         }
+        assert!(available_moves.len() > 0);
+
         let mut rng = thread_rng();
         let moves_vec = &available_moves.into_iter().collect::<Vec<A>>();
         let new_child_move = rng.choose(moves_vec);
