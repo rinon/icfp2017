@@ -59,7 +59,7 @@ fn online_game_loop(stream: &mut BufStream<TcpStream>) {
     let setup_input: punter::Input = recv_message(stream)
         .expect("Could not parse setup message");
 
-    let mut punter = Punter::new(setup_input, punter::PunterType::Random);
+    let mut punter = Punter::new(setup_input, punter::PunterType::MCTS);
     println!("We are player {}", punter.id());
 
     let ready_msg = protocol::ReadyP {
@@ -105,7 +105,9 @@ fn main() {
     let name = matches.opt_str("name").unwrap_or(DEFAULT_NAME.to_string());
 
     println!("connecting...");
-    let mut stream = BufStream::new(TcpStream::connect((&server[..], port)).unwrap());
+    let mut connection = TcpStream::connect((&server[..], port))
+        .expect("Connection refused!");
+    let mut stream = BufStream::new(connection);
     println!("connected");
 
     online_handshake(&mut stream, name);
