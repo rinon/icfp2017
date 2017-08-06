@@ -410,23 +410,28 @@ impl<'a, A: GameAction> MCTSNode<A> {
             match node_rc {
                 None => return prev_rc,
                 Some(n) => {
-                    g.make_move(&n.borrow().play.unwrap());
-                    let status = n.borrow().status;
+                    let mut node = n.borrow_mut();
+                    g.make_move(&node.play.unwrap());
+                    let status = node.status;
                     match status {
                         NodeStatus::Done => return prev_rc,
                         NodeStatus::Expandable => {
-                            let new_child = n.borrow_mut().expand(g);
+                            let new_child = node.expand(g);
                             match new_child {
                                 None =>
-                                    node_rc = n.borrow().select_UCT(c),
-                                Some(child) => {
-                                    child.borrow_mut().parent = Some(Rc::downgrade(&n));
-                                    return Some(child);
+                                    node_rc = node.select_UCT(c),
+                                Some(child_rc) => {
+                                    {
+                                        let mut child = child_rc.borrow_mut();
+                                        g.make_move(&child.play.unwrap());
+                                        child.parent = Some(Rc::downgrade(&n));
+                                    }
+                                    return Some(child_rc);
                                 },
                             }
                         },
                         NodeStatus::Expanded =>
-                            node_rc = n.borrow().select_UCT(c),
+                            node_rc = node.select_UCT(c),
                     };
                 }
             }
