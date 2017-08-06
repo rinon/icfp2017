@@ -160,7 +160,6 @@ impl Punter {
                         self.river_mut(id).set_owner(punter);
                     }
                     protocol::Move::pass { punter: _ } => { }
-                    protocol::Move::timeout ( _ ) => { }
                 }
             }
         }

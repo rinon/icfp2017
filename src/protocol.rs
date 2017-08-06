@@ -27,6 +27,8 @@ pub enum TurnS {
         moves: Vec<Move>,
         scores: Vec<Score>,
     },
+
+    timeout ( f64 ),
 }
 
 #[derive(Serialize, Deserialize, Debug)]
@@ -46,8 +48,6 @@ pub enum Move {
     pass {
         punter: PunterId,
     },
-
-    timeout ( f64 ),
 }
 
 #[derive(Serialize, Deserialize, Debug)]
