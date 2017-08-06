@@ -445,8 +445,12 @@ impl<'a, A: GameAction> MCTSNode<A> {
         let mut best = self.play;
         let mut best_count = 0.;
         for child in &self.children {
-            if child.borrow().count > best_count {
-                best = child.borrow().play;
+            let child_ref = child.borrow();
+            // TODO: shouldn't the value here be something like
+            // child.score/child.count (average score)
+            if child_ref.count > best_count {
+                best_count = child_ref.count;
+                best = child_ref.play;
             }
         }
         best.unwrap()
