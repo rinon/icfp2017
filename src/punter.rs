@@ -403,6 +403,8 @@ impl<'a, A: GameAction> MCTSNode<A> {
     /// Expand and return a new child of this node.
     fn expand(&mut self, g: &Game<A>) -> Option<Rc<RefCell<MCTSNode<A>>>> {
         let moves = HashSet::from_iter(g.available_actions());
+        // FIXME: since we're only expanding one leaf node,
+        // isn't expanded_moves always empty???
         let expanded_moves = self.children.iter()
             .map(|ref child| child.borrow().play.unwrap())
             .collect::<HashSet<_>>();
