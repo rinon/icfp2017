@@ -353,7 +353,11 @@ impl<'a, A: GameAction> MCTSNode<A> {
     }
 
     /// Select and return the "best" child
-    fn select(&self, g: &mut Game<A>, c: f64) -> Rc<RefCell<MCTSNode<A>>> {
+    fn select(&self, g: &mut Game<A>, c: f64) -> Option<Rc<RefCell<MCTSNode<A>>>> {
+        if self.children.len() == 0 {
+            return None;
+        }
+
         let mut best_value = NEG_INFINITY;
         let mut best_child = &self.children[0];
 
@@ -367,9 +371,9 @@ impl<'a, A: GameAction> MCTSNode<A> {
         }
         g.make_move(&best_child.borrow().play.unwrap());
         if best_child.borrow().children.len() == 0 {
-            return best_child.clone();
+            return Some(best_child.clone());
         } else {
-            return best_child.borrow().select(g, c);
+            return Some(best_child.borrow().select(g, c).unwrap());
         }
     }
 
@@ -428,7 +432,7 @@ impl<'a, A: GameAction> MCTSNode<A> {
 
 struct MCTS<'a> {
     punter: &'a Punter,
-    root: MCTSNode<Play>,
+    root: Rc<RefCell<MCTSNode<Play>>>,
     c: f64,
 }
 
@@ -436,14 +440,14 @@ impl<'a> MCTS<'a> {
     fn new(punter: &Punter, c: f64) -> MCTS {
         MCTS {
             punter: punter,
-            root: MCTSNode::new(None),
+            root: Rc::new(RefCell::new(MCTSNode::new(None))),
             c: c,
         }
     }
 
     fn step(&mut self) {
         let mut game = InternalGameState::new(self.punter);
-        let mut leaf = self.root.select(&mut game, self.c);
+        let mut leaf = self.root.borrow_mut().select(&mut game, self.c).unwrap_or(self.root.clone());
         match leaf.borrow_mut().expand(&mut game) {
             Some(child) => {
                 child.borrow_mut().parent = Some(Rc::downgrade(&leaf));
