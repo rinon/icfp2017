@@ -357,15 +357,13 @@ impl<'a, A: GameAction> MCTSNode<A> {
         }
     }
 
-    /// Select and return the "best" child
-    fn select(&self, g: &mut Game<A>, c: f64) -> Option<Rc<RefCell<MCTSNode<A>>>> {
-        if self.children.len() == 0 {
-            return None;
-        }
+    fn is_leaf(&self) -> bool {
+        self.children.len() == 0
+    }
 
+    fn select_best_child(&self, c: f64) -> Rc<RefCell<MCTSNode<A>>> {
         let mut best_value = NEG_INFINITY;
         let mut best_child = &self.children[0];
-
         for child_ref in &self.children {
             let child = child_ref.borrow();
             let value = child.score / child.count + c*(2.*self.count.ln()/child.count).sqrt();
@@ -374,11 +372,29 @@ impl<'a, A: GameAction> MCTSNode<A> {
                 best_child = child_ref;
             }
         }
-        g.make_move(&best_child.borrow().play.unwrap());
-        if best_child.borrow().children.len() == 0 {
-            return Some(best_child.clone());
-        } else {
-            return best_child.borrow().select(g, c);
+        best_child.clone()
+    }
+
+    /// Select and return the "best" child
+    fn select(&self, g: &mut Game<A>, c: f64) -> Option<Rc<RefCell<MCTSNode<A>>>> {
+        if self.is_leaf() {
+            return None;
+        }
+
+        let root_best_child = self.select_best_child(c);
+        g.make_move(&root_best_child.borrow().play.unwrap());
+        if root_best_child.borrow().is_leaf() {
+            return Some(root_best_child.clone());
+        }
+
+        let mut node_rc = root_best_child.clone();
+        loop {
+            let node_best_child = node_rc.borrow().select_best_child(c);
+            g.make_move(&node_best_child.borrow().play.unwrap());
+            if node_best_child.borrow().is_leaf() {
+                return Some(node_best_child.clone());
+            }
+            node_rc = node_best_child.clone();
         }
     }
 
