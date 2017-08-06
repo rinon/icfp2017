@@ -46,6 +46,8 @@ pub enum Move {
     pass {
         punter: PunterId,
     },
+
+    timeout ( f64 ),
 }
 
 #[derive(Serialize, Deserialize, Debug)]
