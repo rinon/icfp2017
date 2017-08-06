@@ -309,7 +309,7 @@ impl<'a> Game<Play> for InternalGameState<'a> {
         let mut total: f64 = 0.;
         for (i, score) in scores.iter().enumerate() {
             if i != self.state.id() {
-                total += (my_score - score) as f64;
+                total += my_score as f64 - *score as f64;
             }
         }
         total / (scores.len() - 1) as f64
@@ -428,6 +428,17 @@ impl<'a, A: GameAction> MCTSNode<A> {
             }
         }
     }
+
+    fn best_move(&self) -> A {
+        let mut best = self.play;
+        let mut best_count = 0.;
+        for child in &self.children {
+            if child.borrow().count > best_count {
+                best = child.borrow().play;
+            }
+        }
+        best.unwrap()
+    }
 }
 
 struct MCTS<'a> {
@@ -447,8 +458,9 @@ impl<'a> MCTS<'a> {
 
     fn step(&mut self) {
         let mut game = InternalGameState::new(self.punter);
-        let mut leaf = self.root.borrow_mut().select(&mut game, self.c).unwrap_or(self.root.clone());
-        match leaf.borrow_mut().expand(&mut game) {
+        let mut leaf = self.root.borrow().select(&mut game, self.c).unwrap_or(self.root.clone());
+        let new_child = leaf.borrow_mut().expand(&mut game);
+        match new_child {
             Some(child) => {
                 child.borrow_mut().parent = Some(Rc::downgrade(&leaf));
                 let score = child.borrow().simulate(&mut game);
@@ -459,11 +471,7 @@ impl<'a> MCTS<'a> {
     }
 
     fn best_move(&self) -> Play {
-        Play {
-            punter: self.punter.id(),
-            source: 0,
-            target: 0,
-        }
+        self.root.borrow().best_move()
     }
 }
 
