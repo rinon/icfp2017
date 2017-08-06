@@ -408,21 +408,7 @@ impl<'a, A: GameAction> MCTSNode<A> {
                     let status = node.status;
                     match status {
                         NodeStatus::Done => return Some(n.clone()),
-                        NodeStatus::Expandable => return Some(n.clone()),// {
-                        //     let new_child = node.expand(g);
-                        //     match new_child {
-                        //         None =>
-                        //             node_rc = node.select_UCT(c),
-                        //         Some(child_rc) => {
-                        //             {
-                        //                 let mut child = child_rc.borrow_mut();
-                        //                 g.make_move(&child.play.unwrap());
-                        //                 child.parent = Some(Rc::downgrade(&n));
-                        //             }
-                        //             return Some(child_rc);
-                        //         },
-                        //     }
-                        // },
+                        NodeStatus::Expandable => return Some(n.clone()),
                         NodeStatus::Expanded => node_rc = node.select_UCT(c),
                     };
                 }
