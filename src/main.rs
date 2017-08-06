@@ -56,6 +56,7 @@ fn online_handshake(stream: &mut BufStream<TcpStream>, name: String) {
 }
 
 fn online_game_loop(stream: &mut BufStream<TcpStream>) {
+    let setup_begin = Instant::now();
     let setup_input: punter::Input = recv_message(stream)
         .expect("Could not parse setup message");
 
@@ -66,6 +67,8 @@ fn online_game_loop(stream: &mut BufStream<TcpStream>) {
         ready: punter.id(),
     };
     send_message(stream, &ready_msg);
+    let setup_time = setup_begin.elapsed();
+    println!("Setup took {}.{:09}s", setup_time.as_secs(), setup_time.subsec_nanos());
 
     loop {
         let turn: protocol::TurnS = recv_message(stream)
