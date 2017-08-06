@@ -230,9 +230,12 @@ impl Punter {
     fn move_mcts(&self) -> Play {
         let now = Instant::now();
         let mut mcts = MCTS::new(self, 1.4);
+        let mut iterations = 0;
         while now.elapsed() < Duration::from_millis(900) {
             mcts.step();
+            iterations += 1;
         }
+        println!("Ran {} iterations", iterations);
         mcts.best_move()
     }
 
@@ -317,10 +320,12 @@ impl<'a> Game<Play> for InternalGameState<'a> {
 }
 
 
+#[derive(Debug)]
 enum NodeStatus {
     Done, Expanded, Expandable,
 }
 
+#[derive(Debug)]
 struct MCTSNode<A> {
     play: Option<A>,
     children: Vec<Rc<RefCell<MCTSNode<A>>>>,
@@ -436,6 +441,7 @@ impl<'a, A: GameAction> MCTSNode<A> {
     }
 }
 
+#[derive(Debug)]
 struct MCTS<'a> {
     punter: &'a Punter,
     root: Rc<RefCell<MCTSNode<Play>>>,
