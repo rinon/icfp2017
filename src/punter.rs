@@ -331,7 +331,7 @@ impl<'a> Game<Play> for InternalGameState<'a> {
 }
 
 
-#[derive(Debug, Copy, Clone)]
+#[derive(Debug, Copy, Clone, PartialEq)]
 enum NodeStatus {
     Done, Expanded, Expandable,
 }
@@ -511,6 +511,13 @@ impl<'a> MCTS<'a> {
             child_ref.parent = Some(Rc::downgrade(&leaf));
             let score = child_ref.simulate(&mut game);
             child_ref.backpropagate(score);
+        } else {
+            // If we couldn't expand, that means the leaf is terminal
+            // In that case, just backpropagate its score up
+            let mut leaf_ref = leaf.borrow_mut();
+            assert!(leaf_ref.status == NodeStatus::Done);
+            let leaf_score = leaf_ref.score;
+            leaf_ref.backpropagate(leaf_score);
         }
     }
 
