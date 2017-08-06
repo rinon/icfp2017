@@ -415,13 +415,10 @@ impl<'a, A: GameAction> MCTSNode<A> {
     fn backpropagate(&mut self, score: f64) {
         self.count += 1.;
         self.score += score;
-        let mut cur_node = self.parent.clone();
-        while let Some(weak_ref) = cur_node {
-            let node = weak_ref.upgrade().unwrap();
-            let mut node_ref = node.borrow_mut();
-            node_ref.count += 1.;
-            node_ref.score += score;
-            cur_node = node_ref.parent.clone();
+        if let Some(ref parent_ref) = self.parent {
+            let parent_cell = parent_ref.upgrade().unwrap();
+            let mut parent = parent_cell.borrow_mut();
+            parent.backpropagate(score);
         }
     }
 
