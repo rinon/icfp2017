@@ -284,27 +284,34 @@ struct InternalGameState<'a> {
     rivers: Vec<River>,
     current_punter: PunterId,
     state: &'a Punter,
+    available_rivers: HashSet<RiverId>,
 }
 
 impl<'a> InternalGameState<'a> {
     fn new(state: &'a Punter) -> InternalGameState {
+        let available_rivers = HashSet::from_iter(
+                (0..state.input.map.rivers.len())
+                .filter(|x| state.input.map.rivers[*x].owner.is_none()));
         InternalGameState {
             rivers: state.input.map.rivers.clone(),
             current_punter: state.id(),
             state: state,
+            available_rivers: available_rivers,
         }
     }
 }
 
 impl<'a> Game<Play> for InternalGameState<'a> {
     fn available_actions(&self) -> Vec<Play> {
-        self.rivers.iter()
-            .filter(|x| x.owner.is_none())
-            .map(|x| Play::new(x, self.current_punter)).collect()
+        self.available_rivers.iter()
+            .map(|x| Play::new(&self.rivers[*x], self.current_punter))
+            .collect::<Vec<Play>>()
     }
 
     fn make_move(&mut self, action: &Play) {
-        self.rivers[self.state.find_river(action.source, action.target).unwrap()].set_owner(action.punter);
+        let river = self.state.find_river(action.source, action.target).unwrap();
+        self.rivers[river].set_owner(action.punter);
+        self.available_rivers.remove(&river);
         self.current_punter = (self.current_punter + 1) % self.state.input.punters;
     }
 
