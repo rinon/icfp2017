@@ -413,19 +413,14 @@ impl<'a, A: GameAction> MCTSNode<A> {
         self.count += 1.;
         self.score += score;
         let mut cur_node = self.parent.clone();
-        loop {
-            match cur_node {
-                Some(weak_ref) => {
-                    let node = weak_ref.upgrade().unwrap();
-                    node.borrow_mut().count += 1.;
-                    node.borrow_mut().score += score;
-                    cur_node = match node.borrow().parent {
-                        Some(ref node_ref) => Some(node_ref.clone()),
-                        None => None,
-                    };
-                },
-                None => break
-            }
+        while let Some(weak_ref) = cur_node {
+            let node = weak_ref.upgrade().unwrap();
+            node.borrow_mut().count += 1.;
+            node.borrow_mut().score += score;
+            cur_node = match node.borrow().parent {
+                Some(ref node_ref) => Some(node_ref.clone()),
+                None => None,
+            };
         }
     }
 
