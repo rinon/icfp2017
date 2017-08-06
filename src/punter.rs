@@ -378,7 +378,7 @@ impl<'a, A: GameAction> MCTSNode<A> {
         if best_child.borrow().children.len() == 0 {
             return Some(best_child.clone());
         } else {
-            return Some(best_child.borrow().select(g, c).unwrap());
+            return best_child.borrow().select(g, c);
         }
     }
 
