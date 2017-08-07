@@ -420,30 +420,45 @@ impl<'a> InternalGameState<'a> {
                 self.available_rivers.extend(available_rivers);
             }
             Some(radius) => {
-                let mut que: VecDeque<SiteIdx> = VecDeque::with_capacity(self.input.map.sites.len());
-                let mut visited = vec![false; self.input.map.sites.len()];
+                let mut que: VecDeque<SiteIdx> = VecDeque::with_capacity(self.state.input.map.sites.len());
+                let mut visited = vec![false; self.state.input.map.sites.len()];
                 let owned_rivers = (0..input_rivers.len())
                     .filter(|x| input_rivers[*x].owner.is_some());
-                for river in owned_rivers {
-                    que.extend(river.source_idx);
-                    que.extend(river.target_idx);
+                for ridx in owned_rivers {
+                    let river = &self.rivers[ridx];
+                    que.push_back(river.source_idx);
+                    que.push_back(river.target_idx);
+                    visited[river.source_idx] = true;
+                    visited[river.target_idx] = true;
                 }
-                for site in self.state.input.map.mines {
-                    que.extend(self.site_index[site]);
+                for site in &self.state.input.map.mines {
+                    let site_idx = self.state.site_index[&site];
+                    que.push_back(site_idx);
+                    visited[site_idx] = true;
                 }
+                let mut count = que.len();
+                let mut distance = 0;
                 while let Some(site_idx) = que.pop_front() {
+                    count -= 1;
+                    if count == 0 {
+                        distance += 1;
+                        count = que.len();
+                    }
+                    if distance > radius {
+                        break;
+                    }
+
                     if visited[site_idx] {
                         continue;
                     }
-                    visited[site_idx] = true;
 
-                    
-                    for ridx in &self.edges[site_idx] {
-                        let river = &rivers[*ridx];
-                        if river.owner.map_or(true, |o| o != punter) &&
-                            river.renter.map_or(true, |o| o != punter) {
-                                continue;
-                            }
+
+                    for ridx in &self.state.edges[site_idx] {
+                        let river = &self.rivers[*ridx];
+                        if river.owner.is_some() {
+                            continue;
+                        }
+                        self.available_rivers.insert(*ridx);
                         let neighbor = river.other_index(site_idx);
                         if !visited[neighbor] {
                             visited[neighbor] = true;
@@ -462,10 +477,20 @@ impl<'a> Game<RiverIdx> for InternalGameState<'a> {
         &self.available_rivers
     }
 
-    fn make_move(&mut self, river: RiverIdx) {
+    fn make_move(&mut self, ridx: RiverIdx) {
         assert!(self.status == GameStatus::Playing);
-        self.rivers[river].add_owner(self.current_punter);
-        self.available_rivers.remove(&river);
+        self.rivers[ridx].add_owner(self.current_punter);
+        self.available_rivers.remove(&ridx);
+        let river = &self.rivers[ridx];
+        for site_idx in [river.source_idx, river.target_idx].iter() {
+            for neighbor_ridx in &self.state.edges[*site_idx] {
+                let neighbor = &self.rivers[*neighbor_ridx];
+                if neighbor.owner.is_some() {
+                    continue;
+                }
+                self.available_rivers.insert(*neighbor_ridx);
+            }
+        }
         self.current_punter = (self.current_punter + 1) % self.state.input.punters;
         if self.available_rivers.is_empty() {
             self.status = GameStatus::Finished;
