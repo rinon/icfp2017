@@ -2,7 +2,6 @@ use std::collections::{HashSet, HashMap, VecDeque};
 use rand::{thread_rng};
 use std::time::{Duration, Instant};
 use std::f64::NEG_INFINITY;
-use std::iter::FromIterator;
 use std::fmt::Debug;
 use std::hash::Hash;
 use rand::Rng;
@@ -266,8 +265,10 @@ impl Punter {
         // then c here should be 1.0, since 1.4 is actually sqrt(2)
         let mut mcts = MCTS::new(self, 1.4);
         let mut iterations = 0;
+        let mut game = InternalGameState::new(&self);
         while begin_time.elapsed() < Duration::from_millis((timeout as u64 * 1000) - 150) {
-            mcts.step();
+            game.reset_game();
+            mcts.step(&mut game);
             iterations += 1;
             // println!("MCTS: {:#?}", mcts.root);
         }
@@ -320,39 +321,72 @@ impl Play {
 
 impl GameAction for RiverId {}
 
+#[derive(Debug, PartialEq)]
+enum GameStatus {
+    NotStarted,
+    Playing,
+    Finished,
+}
+
 struct InternalGameState<'a> {
-    rivers: Vec<River>,
+    // Constant immutable state
     current_punter: PunterId,
     state: &'a Punter,
+
+    // Per-game state
+    status: GameStatus,
+    rivers: Vec<River>,
     available_rivers: HashSet<RiverId>,
 }
 
 impl<'a> InternalGameState<'a> {
     fn new(state: &'a Punter) -> InternalGameState {
-        let available_rivers = HashSet::from_iter(
-                (0..state.input.map.rivers.len())
-                .filter(|x| state.input.map.rivers[*x].owner.is_none()));
+        let available_rivers_len = (0..state.input.map.rivers.len())
+                .filter(|x| state.input.map.rivers[*x].owner.is_none())
+                .count();
         InternalGameState {
-            rivers: state.input.map.rivers.clone(),
             current_punter: state.id(),
             state: state,
-            available_rivers: available_rivers,
+            status: GameStatus::NotStarted,
+            rivers: Vec::with_capacity(state.input.map.rivers.len()),
+            available_rivers: HashSet::with_capacity(available_rivers_len),
+        }
+    }
+
+    fn reset_game(&mut self) {
+        let input_rivers = &self.state.input.map.rivers;
+        self.status = GameStatus::Playing;
+        {
+            self.rivers.clear();
+            self.rivers.extend_from_slice(input_rivers);
+        }
+        {
+            let available_rivers = (0..input_rivers.len())
+                    .filter(|x| input_rivers[*x].owner.is_none());
+            self.available_rivers.clear();
+            self.available_rivers.extend(available_rivers);
         }
     }
 }
 
 impl<'a> Game<RiverId> for InternalGameState<'a> {
     fn available_actions (&self) -> &HashSet<RiverId> {
+        assert!(self.status != GameStatus::NotStarted);
         &self.available_rivers
     }
 
     fn make_move(&mut self, river: RiverId) {
+        assert!(self.status == GameStatus::Playing);
         self.rivers[river].add_owner(self.current_punter);
         self.available_rivers.remove(&river);
         self.current_punter = (self.current_punter + 1) % self.state.input.punters;
+        if self.available_rivers.is_empty() {
+            self.status = GameStatus::Finished;
+        }
     }
 
     fn score(&self) -> f64 {
+        assert!(self.status == GameStatus::Finished);
         let scores = self.state.score(&self.rivers);
         let my_score = scores[self.state.id()];
         let mut total: f64 = 0.;
@@ -537,14 +571,13 @@ impl<'a> MCTS<'a> {
         }
     }
 
-    fn step(&mut self) {
-        let mut game = InternalGameState::new(self.punter);
-        let leaf = self.root.borrow_mut().select(&mut game, self.c).unwrap_or(self.root.clone());
-        let new_child = leaf.borrow_mut().expand(&mut game);
+    fn step(&mut self, game: &mut InternalGameState) {
+        let leaf = self.root.borrow_mut().select(game, self.c).unwrap_or(self.root.clone());
+        let new_child = leaf.borrow_mut().expand(game);
         if let Some(child) = new_child {
             let mut child_ref = child.borrow_mut();
             child_ref.parent = Some(Rc::downgrade(&leaf));
-            let score = child_ref.simulate(&mut game);
+            let score = child_ref.simulate(game);
             child_ref.backpropagate(score);
         } else {
             // If we couldn't expand, that means the leaf is terminal
