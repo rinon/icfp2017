@@ -1,0 +1,7 @@
+#!/bin/bash
+
+cargo build --release --bin punter
+mv target/release/punter ./
+
+tar czf ~/icfp-692c8bcf-4155-4c14-88cb-71d2e849f34a.tar.gz
+md5sum ~/icfp-692c8bcf-4155-4c14-88cb-71d2e849f34a.tar.gz

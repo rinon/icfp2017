@@ -1,0 +1,20 @@
+# Team Random Hackers
+
+Members:
+- Stephen Crane
+- Andrei Homescu
+
+# Submission description
+
+Our AI uses the UCT algorithm (which is a Monte Carlo Tree Search variant). Tree
+search depth is limited during simulations to look at more moves on large maps.
+
+# Build instructions
+
+Our ./install script is empty, since you shouldn't need to rebuild our
+submission. If you do need to, please use the following build command:
+
+    cargo build --release --bin punter
+
+The output binary will be found at target/release/punter. This build process
+requires network access to download dependencies.
