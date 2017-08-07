@@ -210,19 +210,19 @@ impl Punter {
         }
     }
 
-    pub fn score(&self, rivers: &Vec<River>) -> Vec<u64> {
-        let mut scores = Vec::with_capacity(self.input.punters);
+    pub fn compute_scores(&self, rivers: &Vec<River>, scores: &mut Vec<u64>) {
         let mut que: VecDeque<SiteId> = VecDeque::with_capacity(self.input.map.sites.len());
         let mut visited = HashSet::<SiteId>::with_capacity(self.input.map.sites.len());
+        scores.resize(self.input.punters, 0);
         for punter in 0..self.input.punters {
-            let mut score: u64 = 0;
+            scores[punter] = 0;
             for mine in &self.input.map.mines {
                 que.clear();
                 que.push_back(*mine);
                 visited.clear();
                 while let Some(site) = que.pop_front() {
                     let dist = *self.shortest_paths.get(&(*mine, site)).unwrap_or(&0) as u64;
-                    score += dist*dist;
+                    scores[punter] += dist*dist;
                     if let Some(ref neighbors) = self.edges.get(&site) {
                         for ridx in *neighbors {
                             let river = &rivers[*ridx];
@@ -239,10 +239,7 @@ impl Punter {
                     }
                 }
             }
-
-            scores.push(score);
         }
-        scores
     }
 
     ////////////////////////////////////////////////////////////////////////////
@@ -337,6 +334,7 @@ struct InternalGameState<'a> {
     status: GameStatus,
     rivers: Vec<River>,
     available_rivers: HashSet<RiverId>,
+    scores: Vec<u64>,
 }
 
 impl<'a> InternalGameState<'a> {
@@ -350,6 +348,7 @@ impl<'a> InternalGameState<'a> {
             status: GameStatus::NotStarted,
             rivers: Vec::with_capacity(state.input.map.rivers.len()),
             available_rivers: HashSet::with_capacity(available_rivers_len),
+            scores: Vec::with_capacity(state.input.punters),
         }
     }
 
@@ -385,17 +384,17 @@ impl<'a> Game<RiverId> for InternalGameState<'a> {
         }
     }
 
-    fn score(&self) -> f64 {
+    fn score(&mut self) -> f64 {
         assert!(self.status == GameStatus::Finished);
-        let scores = self.state.score(&self.rivers);
-        let my_score = scores[self.state.id()];
+        self.state.compute_scores(&self.rivers, &mut self.scores);
+        let my_score = self.scores[self.state.id()];
         let mut total: f64 = 0.;
-        for (i, score) in scores.iter().enumerate() {
+        for (i, score) in self.scores.iter().enumerate() {
             if i != self.state.id() {
                 total += my_score as f64 - *score as f64;
             }
         }
-        total / (scores.len() - 1) as f64
+        total / (self.scores.len() - 1) as f64
     }
 }
 
@@ -422,7 +421,7 @@ trait Game<A: GameAction> {
 
     fn make_move(&mut self, action: A);
 
-    fn score(&self) -> f64;
+    fn score(&mut self) -> f64;
 }
 
 impl<'a, A: GameAction> MCTSNode<A> {
