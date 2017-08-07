@@ -18,7 +18,7 @@ pub type RiverIdx = usize;
 
 type SiteIndex = HashMap<SiteId, SiteIdx>;
 type EdgeMatrix = Vec<Vec<RiverIdx>>;
-type ShortestPathsMap = HashMap<(SiteId, SiteId), usize>;
+type ShortestPathsMap = Vec<Vec<usize>>;
 
 const SIMULATION_DEPTH: usize = 1000;
 
@@ -82,15 +82,6 @@ impl River {
         }
     }
 
-    pub fn other_side(&self, site: SiteId) -> SiteId {
-        if site == self.source {
-            self.target
-        } else {
-            assert!(site == self.target);
-            self.source
-        }
-    }
-
     pub fn other_index(&self, site: SiteIdx) -> SiteId {
         if site == self.source_idx {
             self.target_idx
@@ -137,21 +128,21 @@ impl Input {
         // we visit all sites exactly once.
         let mut shortest_paths = ShortestPathsMap::new();
         let mut que: VecDeque<SiteId> = VecDeque::with_capacity(self.map.sites.len());
-        for mine in &self.map.mines {
-            shortest_paths.insert((*mine, *mine), 0);
+        shortest_paths.resize(self.map.mines.len(), vec![]);
+        for (mine, ref mut mine_dists) in self.map.mines.iter().zip(shortest_paths.iter_mut()) {
             let mine_idx = site_index[mine];
+            mine_dists.resize(self.map.sites.len(), usize::max_value());
+            mine_dists[mine_idx] = 0;
             que.clear();
             que.push_back(mine_idx);
             while let Some(site_idx) = que.pop_front() {
-                let site = self.map.sites[site_idx].id;
-                let site_dist = shortest_paths[&(*mine, site)];
+                let site_dist = mine_dists[site_idx];
                 for ridx in &edges[site_idx] {
                     let river = &self.map.rivers[*ridx];
-                    let neighbor = river.other_side(site);
-                    let neighbor_key = (*mine, neighbor);
-                    if !shortest_paths.contains_key(&neighbor_key) {
-                        shortest_paths.insert(neighbor_key, site_dist + 1);
-                        que.push_back(site_index[&neighbor]);
+                    let neighbor = river.other_index(site_idx);
+                    if mine_dists[neighbor] == usize::max_value() {
+                        mine_dists[neighbor] = site_dist + 1;
+                        que.push_back(neighbor);
                     }
                 }
             }
@@ -250,17 +241,18 @@ impl Punter {
         scores.resize(self.input.punters, 0);
         for punter in 0..self.input.punters {
             scores[punter] = 0;
-            for mine in &self.input.map.mines {
-                let mine_idx = self.site_index[mine];
+            for (mine_idx, mine) in self.input.map.mines.iter().enumerate() {
+                let mine_site_idx = self.site_index[mine];
                 que.clear();
-                que.push_back(mine_idx);
+                que.push_back(mine_site_idx);
                 visited.clear();
                 visited.resize(self.input.map.sites.len(), false);
-                visited[mine_idx] = true;
+                visited[mine_site_idx] = true;
                 while let Some(site_idx) = que.pop_front() {
-                    let site = self.input.map.sites[site_idx].id;
-                    let dist = *self.shortest_paths.get(&(*mine, site)).unwrap_or(&0) as u64;
-                    scores[punter] += dist*dist;
+                    let dist = self.shortest_paths[mine_idx][site_idx];
+                    assert!(dist != usize::max_value());
+                    let dist_u64 = dist as u64;
+                    scores[punter] += dist_u64*dist_u64;
                     for ridx in &self.edges[site_idx] {
                         let river = &rivers[*ridx];
                         if river.owner.map_or(true, |o| o != punter) &&
