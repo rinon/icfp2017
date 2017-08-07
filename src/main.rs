@@ -104,7 +104,6 @@ fn main() {
         print_usage(&program, opts);
         return;
     }
-    println!("parsing args...");
 
     let server = matches.opt_str("server").unwrap_or(DEFAULT_SERVER.to_string());
     let port: u16 = matches.opt_str("port").unwrap_or(DEFAULT_PORT.to_string())
