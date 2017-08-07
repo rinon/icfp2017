@@ -558,7 +558,7 @@ impl<'a> MCTS<'a> {
     }
 
     fn best_move(&self) -> Play {
-        let river = &self.punter.input.map.rivers[self.root.borrow().best_move()];
+        let river = &self.punter.river(self.root.borrow().best_move());
         Play::new(river, self.punter.id())
     }
 }
