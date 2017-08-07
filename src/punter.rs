@@ -312,7 +312,8 @@ impl Punter {
         let mut mcts = MCTS::new(self, 1.);
         let mut iterations = 0;
         let mut game = InternalGameState::new(&self);
-        while begin_time.elapsed() < Duration::from_millis((timeout as u64 * 1000) - 100) {
+        let duration = Duration::from_millis((timeout as u64 * 1000) - 100);
+        while begin_time.elapsed() < duration {
             game.reset_game();
             mcts.step(&mut game);
             iterations += 1;
