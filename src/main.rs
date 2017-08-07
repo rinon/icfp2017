@@ -72,14 +72,14 @@ fn online_game_loop(stream: &mut BufStream<TcpStream>, timeout: u8) {
     println!("Setup took {}.{:09}s", setup_time.as_secs(), setup_time.subsec_nanos());
 
     loop {
-        let turn_begin = Instant::now();
         let turn: protocol::TurnS = recv_message(stream)
             .expect("Could not parse turn");
+        let turn_begin = Instant::now();
+        println!("{:#?}", turn);
         if let protocol::TurnS::timeout (_) = turn {
             println!("Timout!");
             continue;
         };
-        println!("{:?}", turn);
         if let protocol::TurnS::stop{scores, moves: _} = turn {
             println!("Done with game. Scores: {:?}", scores);
             break;
