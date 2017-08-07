@@ -196,7 +196,7 @@ pub enum PunterType {
 
 impl Punter {
     pub fn new(input: Input, ai: PunterType) -> Punter {
-        eprintln!("Mines {:#?}", input.map.mines);
+        // eprintln!("Mines {:#?}", input.map.mines);
         let mut input = input; // Make a mutable copy of the input
         let site_index = input.map.sites.iter().enumerate()
             .map(|(idx, site)| (site.id, idx))
@@ -319,7 +319,7 @@ impl Punter {
             iterations += 1;
             // eprintln!("MCTS: {:#?}", mcts.root);
         }
-        eprintln!("Ran {} iterations", iterations);
+        // eprintln!("Ran {} iterations", iterations);
         mcts.best_move()
     }
 

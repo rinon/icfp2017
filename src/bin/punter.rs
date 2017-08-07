@@ -52,7 +52,7 @@ impl OfflineGame {
         self.send_message(&punter::handshake(name));
         let handshake: protocol::HandshakeS = self.recv_message(reader)
             .expect("Could not parse handshake response");
-        eprintln!("Registered as: {}", handshake.you);
+        // eprintln!("Registered as: {}", handshake.you);
     }
 
     fn game_step(&mut self, timeout: u8) {
@@ -64,7 +64,7 @@ impl OfflineGame {
         match setup_input {
             protocol::OfflineInput::Setup (setup_input) => {
                 let punter = Punter::new(setup_input, punter::PunterType::MCTS);
-                eprintln!("We are player {}", punter.id());
+                // eprintln!("We are player {}", punter.id());
 
                 let ready_msg = protocol::OfflineReadyP {
                     ready: punter.id(),
@@ -103,11 +103,11 @@ impl OfflineGame {
             protocol::OfflineInput::Stop (
                 protocol::OfflineStop {stop, state}
             ) => {
-                eprintln!("Done with game. Scores: {:?}", stop.scores);
-                eprintln!("Our score: {:?}", stop.scores[state.id()]);
+                // eprintln!("Done with game. Scores: {:?}", stop.scores);
+                // eprintln!("Our score: {:?}", stop.scores[state.id()]);
             }
             protocol::OfflineInput::Timeout {timeout: _} => {
-                eprintln!("Timout!");
+                // eprintln!("Timout!");
             }
         }
     }
