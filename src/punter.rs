@@ -220,6 +220,7 @@ impl Punter {
                 que.clear();
                 que.push_back(*mine);
                 visited.clear();
+                visited.insert(*mine);
                 while let Some(site) = que.pop_front() {
                     let dist = *self.shortest_paths.get(&(*mine, site)).unwrap_or(&0) as u64;
                     scores[punter] += dist*dist;
