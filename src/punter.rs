@@ -424,14 +424,11 @@ impl<'a, A: GameAction> MCTSNode<A> {
         while let Some(n) = node_rc {
             let node = n.borrow_mut();
             g.make_move(&node.play.unwrap());
-            let status = node.status;
-            match status {
+            prev_rc = Some(n.clone());
+            node_rc = match node.status {
                 NodeStatus::Done |
-                NodeStatus::Expandable => return Some(n.clone()),
-                NodeStatus::Expanded => {
-                    node_rc = node.select_uct(c);
-                    prev_rc = Some(n.clone());
-                }
+                NodeStatus::Expandable => None,
+                NodeStatus::Expanded => node.select_uct(c),
             };
         }
         prev_rc
