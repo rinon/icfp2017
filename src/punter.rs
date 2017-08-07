@@ -6,6 +6,9 @@ use std::iter::FromIterator;
 use std::fmt::Debug;
 use std::hash::Hash;
 use rand::Rng;
+use std::rc::Rc;
+use std::rc::Weak;
+use std::cell::RefCell;
 
 use protocol;
 
@@ -363,8 +366,8 @@ enum NodeStatus {
 #[derive(Debug)]
 struct MCTSNode<A> {
     play: Option<A>,
-    children: Vec<MCTSNode<A>>,
-    parent: Option<*mut MCTSNode<A>>,
+    children: Vec<Rc<RefCell<MCTSNode<A>>>>,
+    parent: Option<Weak<RefCell<MCTSNode<A>>>>,
     status: NodeStatus,
     score: f64,
     count: f64,
@@ -392,41 +395,55 @@ impl<'a, A: GameAction> MCTSNode<A> {
         }
     }
 
-    fn select_uct(&mut self, c: f64) -> Option<*mut Self> {
+    fn select_uct(&self, c: f64) -> Option<Rc<RefCell<MCTSNode<A>>>> {
         // We must be fully expanded, select a child based on UCT1
         if self.children.len() == 0 {
             return None;
         }
         let mut best_value = NEG_INFINITY;
-        let mut best_child = &mut self.children[0] as *mut Self;
-        for child in &mut self.children {
+        let mut best_child = &self.children[0];
+        for child_ref in &self.children {
+            let child = child_ref.borrow();
             let value = child.score / child.count + c*(2.*self.count.ln()/child.count).sqrt();
             if value > best_value {
                 best_value = value;
-                best_child = child as *mut Self;
+                best_child = child_ref;
             }
         }
-        Some(best_child)
+        Some(best_child.clone())
     }
 
     /// Select and return the "best" child
-    fn select(&mut self, g: &mut Game<A>, c: f64) -> *mut Self {
-        let mut node_ptr = self as *mut Self;
+    fn select(&mut self, g: &mut Game<A>, c: f64) -> Option<Rc<RefCell<MCTSNode<A>>>> {
+        let mut prev_rc = None;
+        let mut node_rc = match self.status {
+            NodeStatus::Done => None,
+            NodeStatus::Expandable => None,
+            NodeStatus::Expanded => self.select_uct(c),
+        };
+
         loop {
-            let mut node = unsafe { &mut *node_ptr };
-            let child_ptr = match node.status {
-                NodeStatus::Done |
-                NodeStatus::Expandable => return node_ptr,
-                NodeStatus::Expanded => node.select_uct(c).unwrap(),
-            };
-            let child = unsafe { &mut *child_ptr };
-            g.make_move(&child.play.unwrap());
-            node_ptr = child_ptr;
+            match node_rc {
+                None => return prev_rc,
+                Some(n) => {
+                    let node = n.borrow_mut();
+                    g.make_move(&node.play.unwrap());
+                    let status = node.status;
+                    match status {
+                        NodeStatus::Done => return Some(n.clone()),
+                        NodeStatus::Expandable => return Some(n.clone()),
+                        NodeStatus::Expanded => {
+                            node_rc = node.select_uct(c);
+                            prev_rc = Some(n.clone());
+                        }
+                    };
+                }
+            }
         }
     }
 
     /// Expand and return a new child of this node.
-    fn expand(&mut self, g: &Game<A>) -> Option<&mut Self> {
+    fn expand(&mut self, g: &Game<A>) -> Option<Rc<RefCell<MCTSNode<A>>>> {
         // println!("Expanding: {:#?}", self);
         let moves = HashSet::from_iter(g.available_actions());
         if moves.len() == 0 {
@@ -435,7 +452,7 @@ impl<'a, A: GameAction> MCTSNode<A> {
         }
 
         let expanded_moves = self.children.iter()
-            .map(|ref child| child.play.unwrap())
+            .map(|ref child| child.borrow().play.unwrap())
             .collect::<HashSet<_>>();
         let available_moves = &moves - &expanded_moves;
 
@@ -448,9 +465,9 @@ impl<'a, A: GameAction> MCTSNode<A> {
         let mut rng = thread_rng();
         let moves_vec = &available_moves.into_iter().collect::<Vec<A>>();
         let new_child_move = rng.choose(moves_vec);
-        let new_node = MCTSNode::new(new_child_move.map(|x| *x));
-        self.children.push(new_node);
-        self.children.last_mut()
+        let new_node = Rc::new(RefCell::new(MCTSNode::new(new_child_move.map(|x| *x))));
+        self.children.push(new_node.clone());
+        Some(new_node.clone())
     }
 
     /// Run a simulation from this node with the given game state. Currently a
@@ -468,16 +485,15 @@ impl<'a, A: GameAction> MCTSNode<A> {
     }
 
     fn backpropagate(&mut self, score: f64) {
-        let mut node_ptr = self as *mut Self;
-        loop {
-            let node = unsafe { &mut *node_ptr };
-            node.count += 1.;
-            node.score += score;
-            if let Some(parent_ptr) = node.parent {
-                node_ptr = parent_ptr;
-            } else {
-                return;
-            }
+        self.count += 1.;
+        self.score += score;
+        let mut cur_node = self.parent.clone();
+        while let Some(weak_ref) = cur_node {
+            let node = weak_ref.upgrade().unwrap();
+            let mut node_ref = node.borrow_mut();
+            node_ref.count += 1.;
+            node_ref.score += score;
+            cur_node = node_ref.parent.clone();
         }
     }
 
@@ -485,13 +501,14 @@ impl<'a, A: GameAction> MCTSNode<A> {
         let mut best = self.play;
         let mut best_value = NEG_INFINITY;
         for child in &self.children {
+            let child_ref = child.borrow();
             // TODO: shouldn't the value here be something like
             // child.score/child.count (average score)
             // SJC: not according to wikipedia...
-            let child_value = child.count;
+            let child_value = child_ref.count;
             if child_value > best_value {
                 best_value = child_value;
-                best = child.play;
+                best = child_ref.play;
             }
         }
         best.unwrap()
@@ -501,7 +518,7 @@ impl<'a, A: GameAction> MCTSNode<A> {
 #[derive(Debug)]
 struct MCTS<'a> {
     punter: &'a Punter,
-    root: MCTSNode<Play>,
+    root: Rc<RefCell<MCTSNode<Play>>>,
     c: f64,
 }
 
@@ -509,30 +526,32 @@ impl<'a> MCTS<'a> {
     fn new(punter: &Punter, c: f64) -> MCTS {
         MCTS {
             punter: punter,
-            root: MCTSNode::new(None),
+            root: Rc::new(RefCell::new(MCTSNode::new(None))),
             c: c,
         }
     }
 
     fn step(&mut self) {
         let mut game = InternalGameState::new(self.punter);
-        let leaf_ptr = self.root.select(&mut game, self.c);
-        let mut new_child = unsafe { &mut *leaf_ptr }.expand(&mut game);
-        if let Some(ref mut child) = new_child {
-            let score = child.simulate(&mut game);
-            child.backpropagate(score);
+        let leaf = self.root.borrow_mut().select(&mut game, self.c).unwrap_or(self.root.clone());
+        let new_child = leaf.borrow_mut().expand(&mut game);
+        if let Some(child) = new_child {
+            let mut child_ref = child.borrow_mut();
+            child_ref.parent = Some(Rc::downgrade(&leaf));
+            let score = child_ref.simulate(&mut game);
+            child_ref.backpropagate(score);
         } else {
             // If we couldn't expand, that means the leaf is terminal
             // In that case, just backpropagate its score up
-            let mut leaf = unsafe { &mut *leaf_ptr };
-            assert!(leaf.status == NodeStatus::Done);
-            let leaf_score = leaf.score;
-            leaf.backpropagate(leaf_score);
+            let mut leaf_ref = leaf.borrow_mut();
+            assert!(leaf_ref.status == NodeStatus::Done);
+            let leaf_score = leaf_ref.score;
+            leaf_ref.backpropagate(leaf_score);
         }
     }
 
     fn best_move(&self) -> Play {
-        self.root.best_move()
+        self.root.borrow().best_move()
     }
 }
 
