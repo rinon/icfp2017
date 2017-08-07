@@ -421,25 +421,20 @@ impl<'a, A: GameAction> MCTSNode<A> {
             NodeStatus::Expandable => None,
             NodeStatus::Expanded => self.select_uct(c),
         };
-
-        loop {
-            match node_rc {
-                None => return prev_rc,
-                Some(n) => {
-                    let node = n.borrow_mut();
-                    g.make_move(&node.play.unwrap());
-                    let status = node.status;
-                    match status {
-                        NodeStatus::Done => return Some(n.clone()),
-                        NodeStatus::Expandable => return Some(n.clone()),
-                        NodeStatus::Expanded => {
-                            node_rc = node.select_uct(c);
-                            prev_rc = Some(n.clone());
-                        }
-                    };
+        while let Some(n) = node_rc {
+            let node = n.borrow_mut();
+            g.make_move(&node.play.unwrap());
+            let status = node.status;
+            match status {
+                NodeStatus::Done |
+                NodeStatus::Expandable => return Some(n.clone()),
+                NodeStatus::Expanded => {
+                    node_rc = node.select_uct(c);
+                    prev_rc = Some(n.clone());
                 }
-            }
+            };
         }
+        prev_rc
     }
 
     /// Expand and return a new child of this node.
