@@ -319,7 +319,7 @@ impl Play {
     }
 }
 
-impl GameAction for Play {}
+impl GameAction for RiverId {}
 
 struct InternalGameState<'a> {
     rivers: Vec<River>,
@@ -342,16 +342,13 @@ impl<'a> InternalGameState<'a> {
     }
 }
 
-impl<'a> Game<Play> for InternalGameState<'a> {
-    fn available_actions(&self) -> Vec<Play> {
-        self.available_rivers.iter()
-            .map(|x| Play::new(&self.rivers[*x], self.current_punter))
-            .collect::<Vec<Play>>()
+impl<'a> Game<RiverId> for InternalGameState<'a> {
+    fn available_actions (&self) -> &HashSet<RiverId> {
+        &self.available_rivers
     }
 
-    fn make_move(&mut self, action: &Play) {
-        let river = self.state.find_river(action.source, action.target).unwrap();
-        self.rivers[river].add_owner(action.punter);
+    fn make_move(&mut self, river: RiverId) {
+        self.rivers[river].add_owner(self.current_punter);
         self.available_rivers.remove(&river);
         self.current_punter = (self.current_punter + 1) % self.state.input.punters;
     }
@@ -388,9 +385,9 @@ struct MCTSNode<A> {
 pub trait GameAction: Debug+Clone+Copy+Eq+Hash {}
 
 trait Game<A: GameAction> {
-    fn available_actions(&self) -> Vec<A>;
+    fn available_actions(&self) -> &HashSet<A>;
 
-    fn make_move(&mut self, action: &A);
+    fn make_move(&mut self, action: A);
 
     fn score(&self) -> f64;
 }
@@ -435,7 +432,7 @@ impl<'a, A: GameAction> MCTSNode<A> {
         };
         while let Some(n) = node_rc {
             let node = n.borrow_mut();
-            g.make_move(&node.play.unwrap());
+            g.make_move(node.play.unwrap());
             prev_rc = Some(n.clone());
             node_rc = match node.status {
                 NodeStatus::Done |
@@ -449,7 +446,7 @@ impl<'a, A: GameAction> MCTSNode<A> {
     /// Expand and return a new child of this node.
     fn expand(&mut self, g: &Game<A>) -> Option<Rc<RefCell<MCTSNode<A>>>> {
         // println!("Expanding: {:#?}", self);
-        let moves = HashSet::from_iter(g.available_actions());
+        let moves = g.available_actions();
         if moves.len() == 0 {
             self.status = NodeStatus::Done;
             return None;
@@ -458,7 +455,7 @@ impl<'a, A: GameAction> MCTSNode<A> {
         let expanded_moves = self.children.iter()
             .map(|ref child| child.borrow().play.unwrap())
             .collect::<HashSet<_>>();
-        let available_moves = &moves - &expanded_moves;
+        let available_moves = moves - &expanded_moves;
 
         // Set status to fully expanded if expanding the last available move
         if available_moves.len() == 1 {
@@ -467,8 +464,8 @@ impl<'a, A: GameAction> MCTSNode<A> {
         assert!(available_moves.len() > 0);
 
         let mut rng = thread_rng();
-        let moves_vec = &available_moves.into_iter().collect::<Vec<A>>();
-        let new_child_move = rng.choose(moves_vec);
+        let idx = rng.gen_range(0, available_moves.len());
+        let new_child_move = available_moves.iter().nth(idx);
         let new_node = Rc::new(RefCell::new(MCTSNode::new(new_child_move.map(|x| *x))));
         self.children.push(new_node.clone());
         Some(new_node.clone())
@@ -479,11 +476,15 @@ impl<'a, A: GameAction> MCTSNode<A> {
     fn simulate(&self, g: &mut Game<A>) -> f64 {
         let mut rng = thread_rng();
         for _ in 0..SIMULATION_DEPTH {
-            if g.available_actions().len() == 0 {
-                break;
-            }
-            let choices = g.available_actions();
-            g.make_move(rng.choose(&choices).unwrap());
+            let chosen_river = {
+                let choices = g.available_actions();
+                if choices.len() == 0 {
+                    break;
+                }
+                let rand_idx = rng.gen_range(0, choices.len());
+                *choices.iter().nth(rand_idx).unwrap()
+            };
+            g.make_move(chosen_river);
         }
         g.score()
     }
@@ -522,7 +523,7 @@ impl<'a, A: GameAction> MCTSNode<A> {
 #[derive(Debug)]
 struct MCTS<'a> {
     punter: &'a Punter,
-    root: Rc<RefCell<MCTSNode<Play>>>,
+    root: Rc<RefCell<MCTSNode<RiverId>>>,
     c: f64,
 }
 
@@ -555,7 +556,8 @@ impl<'a> MCTS<'a> {
     }
 
     fn best_move(&self) -> Play {
-        self.root.borrow().best_move()
+        let river = &self.punter.input.map.rivers[self.root.borrow().best_move()];
+        Play::new(river, self.punter.id())
     }
 }
 
