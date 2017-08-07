@@ -328,11 +328,11 @@ enum GameStatus {
 
 struct InternalGameState<'a> {
     // Constant immutable state
-    current_punter: PunterId,
     state: &'a Punter,
 
     // Per-game state
     status: GameStatus,
+    current_punter: PunterId,
     rivers: Vec<River>,
     available_rivers: HashSet<RiverId>,
     scores: Vec<u64>,
@@ -344,9 +344,9 @@ impl<'a> InternalGameState<'a> {
                 .filter(|x| state.input.map.rivers[*x].owner.is_none())
                 .count();
         InternalGameState {
-            current_punter: state.id(),
             state: state,
             status: GameStatus::NotStarted,
+            current_punter: state.id(),
             rivers: Vec::with_capacity(state.input.map.rivers.len()),
             available_rivers: HashSet::with_capacity(available_rivers_len),
             scores: Vec::with_capacity(state.input.punters),
@@ -356,6 +356,7 @@ impl<'a> InternalGameState<'a> {
     fn reset_game(&mut self) {
         let input_rivers = &self.state.input.map.rivers;
         self.status = GameStatus::Playing;
+        self.current_punter = self.state.id();
         {
             self.rivers.clear();
             self.rivers.extend_from_slice(input_rivers);
