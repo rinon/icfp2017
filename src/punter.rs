@@ -160,6 +160,7 @@ pub struct Punter {
     input: Input,
 
     // Reverse id-to-idx mappings
+    #[serde(serialize_with="bin_serializer", deserialize_with="bin_deserializer")]
     site_index: SiteIndex,
 
     // The edges represented as an incidence matrix:
