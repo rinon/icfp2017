@@ -1,0 +1,4 @@
+#!/bin/bash
+
+echo "Using a pre-compiled binary, no installation required."
+echo "Please see README for re-compilation instructions if needed."
