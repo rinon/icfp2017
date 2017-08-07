@@ -26,6 +26,8 @@ pub struct Input {
     punter: PunterId,
     punters: PunterId,
     map: InputMap,
+
+    #[serde(default)]
     settings: Settings,
 }
 
@@ -36,7 +38,7 @@ pub struct InputMap {
     mines: HashSet<SiteId>,
 }
 
-#[derive(Serialize, Deserialize, Debug)]
+#[derive(Serialize, Deserialize, Debug, Default)]
 pub struct Settings {
     #[serde(default)]
     futures: bool,
