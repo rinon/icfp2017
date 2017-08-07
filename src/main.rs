@@ -75,19 +75,20 @@ fn online_game_loop(stream: &mut BufStream<TcpStream>, timeout: u8) {
         let turn: protocol::TurnS = recv_message(stream)
             .expect("Could not parse turn");
         let turn_begin = Instant::now();
-        println!("{:#?}", turn);
+        // println!("{:#?}", turn);
         if let protocol::TurnS::timeout (_) = turn {
             println!("Timout!");
             continue;
         };
         if let protocol::TurnS::stop{scores, moves: _} = turn {
             println!("Done with game. Scores: {:?}", scores);
+            println!("Our score: {:?}", scores[punter.id()]);
             break;
         }
 
         punter.process_turn(turn);
         let next_move = punter.make_move(turn_begin, timeout);
-        println!("{:?}", next_move);
+        // println!("{:?}", next_move);
         send_message(stream, &next_move);
     }
 }
