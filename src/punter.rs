@@ -250,9 +250,10 @@ impl Punter {
         scores.resize(self.input.punters, 0);
         for punter in 0..self.input.punters {
             scores[punter] = 0;
-            for (mine_idx, mine) in self.input.map.mines.iter().enumerate() {
+            for mine in &self.input.map.mines {
+                let mine_idx = self.site_index[mine];
                 que.clear();
-                que.push_back(self.site_index[mine]);
+                que.push_back(mine_idx);
                 visited.clear();
                 visited.resize(self.input.map.sites.len(), false);
                 visited[mine_idx] = true;
