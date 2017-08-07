@@ -107,8 +107,7 @@ impl Input {
 
     // Construct the incidence matrix for the graph
     fn compute_edges(&self, site_index: &SiteIndex) -> EdgeMatrix {
-        let mut edges = EdgeMatrix::new();
-        edges.resize(site_index.len(), vec![]);
+        let mut edges = vec![vec![]; site_index.len()];
         for (idx, ref river) in self.map.rivers.iter().enumerate() {
             edges[river.source_idx].push(idx);
             edges[river.target_idx].push(idx);
@@ -126,14 +125,11 @@ impl Input {
         // we can compute the shortest path using a simple
         // breadth-first search algorithm; for every mine,
         // we visit all sites exactly once.
-        let mut shortest_paths = ShortestPathsMap::new();
+        let mut shortest_paths = vec![vec![usize::max_value; self.map.sites.len()]; self.map.mines.len()];
         let mut que: VecDeque<SiteId> = VecDeque::with_capacity(self.map.sites.len());
-        shortest_paths.resize(self.map.mines.len(), vec![]);
         for (mine, ref mut mine_dists) in self.map.mines.iter().zip(shortest_paths.iter_mut()) {
             let mine_idx = site_index[mine];
-            mine_dists.resize(self.map.sites.len(), usize::max_value());
             mine_dists[mine_idx] = 0;
-            que.clear();
             que.push_back(mine_idx);
             while let Some(site_idx) = que.pop_front() {
                 let site_dist = mine_dists[site_idx];
@@ -237,16 +233,16 @@ impl Punter {
 
     pub fn compute_scores(&self, rivers: &Vec<River>, scores: &mut Vec<u64>) {
         let mut que: VecDeque<SiteIdx> = VecDeque::with_capacity(self.input.map.sites.len());
-        let mut visited = Vec::<bool>::with_capacity(self.input.map.sites.len());
+        let mut visited = vec![false; self.input.map.sites.len()];
         scores.resize(self.input.punters, 0);
         for punter in 0..self.input.punters {
             scores[punter] = 0;
             for (mine_idx, mine) in self.input.map.mines.iter().enumerate() {
                 let mine_site_idx = self.site_index[mine];
-                que.clear();
                 que.push_back(mine_site_idx);
-                visited.clear();
-                visited.resize(self.input.map.sites.len(), false);
+                for v in &mut visited {
+                    *v = false;
+                }
                 visited[mine_site_idx] = true;
                 while let Some(site_idx) = que.pop_front() {
                     let dist = self.shortest_paths[mine_idx][site_idx];
