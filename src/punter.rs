@@ -387,7 +387,7 @@ impl<'a> Game<RiverId> for InternalGameState<'a> {
     }
 
     fn score(&mut self) -> f64 {
-        assert!(self.status == GameStatus::Finished);
+        assert!(self.status != GameStatus::NotStarted);
         self.state.compute_scores(&self.rivers, &mut self.scores);
         let my_score = self.scores[self.state.id()];
         let mut total: f64 = 0.;
