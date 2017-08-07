@@ -26,6 +26,7 @@ type EdgeMatrix = Vec<Vec<RiverIdx>>;
 type ShortestPathsMap = Vec<Vec<usize>>;
 
 const SIMULATION_DEPTH: usize = 1000;
+const AVAILABLE_RADIUS: Option<usize> = Some(3);
 
 #[derive(Serialize, Deserialize, Debug)]
 pub struct Input {
@@ -411,11 +412,46 @@ impl<'a> InternalGameState<'a> {
             self.rivers.clear();
             self.rivers.extend_from_slice(input_rivers);
         }
-        {
-            let available_rivers = (0..input_rivers.len())
+        self.available_rivers.clear();
+        match AVAILABLE_RADIUS {
+            None => {
+                let available_rivers = (0..input_rivers.len())
                     .filter(|x| input_rivers[*x].owner.is_none());
-            self.available_rivers.clear();
-            self.available_rivers.extend(available_rivers);
+                self.available_rivers.extend(available_rivers);
+            }
+            Some(radius) => {
+                let mut que: VecDeque<SiteIdx> = VecDeque::with_capacity(self.input.map.sites.len());
+                let mut visited = vec![false; self.input.map.sites.len()];
+                let owned_rivers = (0..input_rivers.len())
+                    .filter(|x| input_rivers[*x].owner.is_some());
+                for river in owned_rivers {
+                    que.extend(river.source_idx);
+                    que.extend(river.target_idx);
+                }
+                for site in self.state.input.map.mines {
+                    que.extend(self.site_index[site]);
+                }
+                while let Some(site_idx) = que.pop_front() {
+                    if visited[site_idx] {
+                        continue;
+                    }
+                    visited[site_idx] = true;
+
+                    
+                    for ridx in &self.edges[site_idx] {
+                        let river = &rivers[*ridx];
+                        if river.owner.map_or(true, |o| o != punter) &&
+                            river.renter.map_or(true, |o| o != punter) {
+                                continue;
+                            }
+                        let neighbor = river.other_index(site_idx);
+                        if !visited[neighbor] {
+                            visited[neighbor] = true;
+                            que.push_back(neighbor);
+                        }
+                    }
+                }
+            }        
         }
     }
 }
