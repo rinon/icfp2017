@@ -24,6 +24,7 @@ pub struct Input {
     punter: PunterId,
     punters: PunterId,
     map: InputMap,
+    settings: Settings,
 }
 
 #[derive(Serialize, Deserialize, Debug)]
@@ -31,6 +32,16 @@ pub struct InputMap {
     sites: HashSet<Site>,
     rivers: Vec<River>,
     mines: HashSet<SiteId>,
+}
+
+#[derive(Serialize, Deserialize, Debug)]
+pub struct Settings {
+    #[serde(default)]
+    futures: bool,
+    #[serde(default)]
+    splurges: bool,
+    #[serde(default)]
+    options: bool,
 }
 
 #[derive(Serialize, Deserialize, Debug, Hash, PartialEq, Eq)]
@@ -156,8 +167,17 @@ impl Punter {
             for m in moves {
                 match m {
                     protocol::Move::claim {punter, source, target} => {
-                        let id = self.find_river(source, target).unwrap();
-                        self.river_mut(id).set_owner(punter);
+                        self.add_move(punter, source, target);
+                    }
+                    protocol::Move::option {punter, source, target} => {
+                        self.add_move(punter, source, target);
+                    }
+                    protocol::Move::splurge {punter, route} => {
+                        let mut source = route[0];
+                        for target in &route[1..] {
+                            self.add_move(punter, source, *target);
+                            source = *target;
+                        }
                     }
                     protocol::Move::pass { punter: _ } => { }
                 }
@@ -260,6 +280,11 @@ impl Punter {
 
     fn river_mut(&mut self, id: RiverId) -> &mut River {
         &mut self.input.map.rivers[id]
+    }
+
+    fn add_move(&mut self, punter: PunterId, source: SiteId, target: SiteId) {
+        let id = self.find_river(source, target).unwrap();
+        self.river_mut(id).set_owner(punter);
     }
 }
 

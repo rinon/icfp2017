@@ -49,6 +49,17 @@ pub enum Move {
     pass {
         punter: PunterId,
     },
+
+    splurge {
+        punter: PunterId,
+        route: Vec<SiteId>,
+    },
+
+    option {
+        punter: PunterId,
+        source: SiteId,
+        target: SiteId,
+    },
 }
 
 #[derive(Serialize, Deserialize, Debug)]
