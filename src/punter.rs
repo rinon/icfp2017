@@ -452,10 +452,12 @@ impl<'a, A: GameAction> MCTSNode<A> {
             return None;
         }
 
-        let expanded_moves = self.children.iter()
-            .map(|ref child| child.borrow().play.unwrap())
-            .collect::<HashSet<_>>();
-        let available_moves = moves - &expanded_moves;
+        let mut available_moves = moves.clone();
+        // Remove the children's moves from the available set
+        for child in &self.children {
+            let child_move = child.borrow().play.unwrap();
+            available_moves.remove(&child_move);
+        }
 
         // Set status to fully expanded if expanding the last available move
         if available_moves.len() == 1 {
