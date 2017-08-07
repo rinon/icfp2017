@@ -227,8 +227,8 @@ impl Punter {
                     if let Some(ref neighbors) = self.edges.get(&site) {
                         for ridx in *neighbors {
                             let river = &rivers[*ridx];
-                            if river.owner.map_or(true, |o| o != punter) ||
-                                river.renter.map_or(true, |o| o != punter) {
+                            if river.owner.map_or(true, |o| o != punter) &&
+                               river.renter.map_or(true, |o| o != punter) {
                                 continue;
                             }
                             let neighbor = river.other_side(site);
