@@ -13,9 +13,11 @@ use protocol;
 
 pub type PunterId = usize;
 pub type SiteId = usize;
-pub type RiverId = usize;
+pub type SiteIdx = usize;
+pub type RiverIdx = usize;
 
-type EdgeMatrix = HashMap<SiteId, Vec<RiverId>>;
+type SiteIndex = HashMap<SiteId, SiteIdx>;
+type EdgeMatrix = Vec<Vec<RiverIdx>>;
 type ShortestPathsMap = HashMap<(SiteId, SiteId), usize>;
 
 const SIMULATION_DEPTH: usize = 1000;
@@ -32,9 +34,9 @@ pub struct Input {
 
 #[derive(Serialize, Deserialize, Debug)]
 pub struct InputMap {
-    sites: HashSet<Site>,
+    sites: Vec<Site>,
     rivers: Vec<River>,
-    mines: HashSet<SiteId>,
+    mines: Vec<SiteId>,
 }
 
 #[derive(Serialize, Deserialize, Debug, Default)]
@@ -62,6 +64,11 @@ pub struct River {
 
     #[serde(default)]
     renter: Option<PunterId>,
+
+    #[serde(default)]
+    source_idx: SiteIdx,
+    #[serde(default)]
+    target_idx: SiteIdx,
 }
 
 impl River {
@@ -83,29 +90,47 @@ impl River {
             self.source
         }
     }
+
+    pub fn other_index(&self, site: SiteIdx) -> SiteId {
+        if site == self.source_idx {
+            self.target_idx
+        } else {
+            assert!(site == self.target_idx);
+            self.source_idx
+        }
+    }
 }
 
 impl Input {
     // Helper function used by the binary search and sort
-    fn river_other_side(&self, river: RiverId, site: SiteId) -> SiteId {
-        self.map.rivers[river].other_side(site)
+    fn river_other_index(&self, river: RiverIdx, site: SiteIdx) -> SiteId {
+        self.map.rivers[river].other_index(site)
+    }
+
+    fn index_rivers(&mut self, site_index: &SiteIndex) {
+        for river in &mut self.map.rivers {
+            river.source_idx = site_index[&river.source];
+            river.target_idx = site_index[&river.target];
+        }
     }
 
     // Construct the incidence matrix for the graph
-    fn compute_edges(&self) -> EdgeMatrix {
+    fn compute_edges(&self, site_index: &SiteIndex) -> EdgeMatrix {
         let mut edges = EdgeMatrix::new();
+        edges.resize(site_index.len(), vec![]);
         for (idx, ref river) in self.map.rivers.iter().enumerate() {
-            edges.entry(river.source).or_insert_with(|| vec![]).push(idx);
-            edges.entry(river.target).or_insert_with(|| vec![]).push(idx);
+            edges[river.source_idx].push(idx);
+            edges[river.target_idx].push(idx);
         }
         // Sort the edges of each site by the id of the other side
-        for (site, ref mut site_edges) in edges.iter_mut() {
-            site_edges.sort_by_key(|river| self.river_other_side(*river, *site));
+        for (idx, ref mut site_edges) in edges.iter_mut().enumerate() {
+            site_edges.sort_by_key(|river| self.river_other_index(*river, idx));
         }
         edges
     }
 
-    fn compute_shortest_paths(&self, edges: &EdgeMatrix) -> ShortestPathsMap {
+    fn compute_shortest_paths(&self, edges: &EdgeMatrix,
+                              site_index: &SiteIndex) -> ShortestPathsMap {
         // Since all edges have the same length of 1,
         // we can compute the shortest path using a simple
         // breadth-first search algorithm; for every mine,
@@ -114,19 +139,19 @@ impl Input {
         let mut que: VecDeque<SiteId> = VecDeque::with_capacity(self.map.sites.len());
         for mine in &self.map.mines {
             shortest_paths.insert((*mine, *mine), 0);
+            let mine_idx = site_index[mine];
             que.clear();
-            que.push_back(*mine);
-            while let Some(site) = que.pop_front() {
+            que.push_back(mine_idx);
+            while let Some(site_idx) = que.pop_front() {
+                let site = self.map.sites[site_idx].id;
                 let site_dist = shortest_paths[&(*mine, site)];
-                if let Some(ref neighbors) = edges.get(&site) {
-                    for ridx in *neighbors {
-                        let river = &self.map.rivers[*ridx];
-                        let neighbor = river.other_side(site);
-                        let neighbor_key = (*mine, neighbor);
-                        if !shortest_paths.contains_key(&neighbor_key) {
-                            shortest_paths.insert(neighbor_key, site_dist + 1);
-                            que.push_back(neighbor);
-                        }
+                for ridx in &edges[site_idx] {
+                    let river = &self.map.rivers[*ridx];
+                    let neighbor = river.other_side(site);
+                    let neighbor_key = (*mine, neighbor);
+                    if !shortest_paths.contains_key(&neighbor_key) {
+                        shortest_paths.insert(neighbor_key, site_dist + 1);
+                        que.push_back(site_index[&neighbor]);
                     }
                 }
             }
@@ -139,6 +164,9 @@ impl Input {
 #[derive(Serialize, Deserialize, Debug)]
 pub struct Punter {
     input: Input,
+
+    // Reverse id-to-idx mappings
+    site_index: SiteIndex,
 
     // The edges represented as an incidence matrix:
     // for every site, we keep a list of all its rivers
@@ -159,10 +187,16 @@ pub enum PunterType {
 impl Punter {
     pub fn new(input: Input, ai: PunterType) -> Punter {
         println!("Mines {:#?}", input.map.mines);
-        let edges = input.compute_edges();
-        let shortest_paths = input.compute_shortest_paths(&edges);
+        let mut input = input; // Make a mutable copy of the input
+        let site_index = input.map.sites.iter().enumerate()
+            .map(|(idx, site)| (site.id, idx))
+            .collect::<HashMap<_, _>>();
+        input.index_rivers(&site_index);
+        let edges = input.compute_edges(&site_index);
+        let shortest_paths = input.compute_shortest_paths(&edges, &site_index);
         Punter {
             input: input,
+            site_index: site_index,
             edges: edges,
             shortest_paths: shortest_paths,
             ai: ai,
@@ -211,31 +245,31 @@ impl Punter {
     }
 
     pub fn compute_scores(&self, rivers: &Vec<River>, scores: &mut Vec<u64>) {
-        let mut que: VecDeque<SiteId> = VecDeque::with_capacity(self.input.map.sites.len());
-        let mut visited = HashSet::<SiteId>::with_capacity(self.input.map.sites.len());
+        let mut que: VecDeque<SiteIdx> = VecDeque::with_capacity(self.input.map.sites.len());
+        let mut visited = Vec::<bool>::with_capacity(self.input.map.sites.len());
         scores.resize(self.input.punters, 0);
         for punter in 0..self.input.punters {
             scores[punter] = 0;
-            for mine in &self.input.map.mines {
+            for (mine_idx, mine) in self.input.map.mines.iter().enumerate() {
                 que.clear();
-                que.push_back(*mine);
+                que.push_back(self.site_index[mine]);
                 visited.clear();
-                visited.insert(*mine);
-                while let Some(site) = que.pop_front() {
+                visited.resize(self.input.map.sites.len(), false);
+                visited[mine_idx] = true;
+                while let Some(site_idx) = que.pop_front() {
+                    let site = self.input.map.sites[site_idx].id;
                     let dist = *self.shortest_paths.get(&(*mine, site)).unwrap_or(&0) as u64;
                     scores[punter] += dist*dist;
-                    if let Some(ref neighbors) = self.edges.get(&site) {
-                        for ridx in *neighbors {
-                            let river = &rivers[*ridx];
-                            if river.owner.map_or(true, |o| o != punter) &&
-                               river.renter.map_or(true, |o| o != punter) {
-                                continue;
-                            }
-                            let neighbor = river.other_side(site);
-                            if !visited.contains(&neighbor) {
-                                visited.insert(neighbor);
-                                que.push_back(neighbor);
-                            }
+                    for ridx in &self.edges[site_idx] {
+                        let river = &rivers[*ridx];
+                        if river.owner.map_or(true, |o| o != punter) &&
+                           river.renter.map_or(true, |o| o != punter) {
+                            continue;
+                        }
+                        let neighbor = river.other_index(site_idx);
+                        if !visited[neighbor] {
+                            visited[neighbor] = true;
+                            que.push_back(neighbor);
                         }
                     }
                 }
@@ -277,20 +311,21 @@ impl Punter {
     ////////////////////////////////////////////////////////////////////////////
     // Utilities
     ////////////////////////////////////////////////////////////////////////////
-    fn find_river(&self, source: SiteId, target: SiteId) -> Option<RiverId> {
-        self.edges.get(&source).and_then(|ref rivers| {
-            rivers.binary_search_by_key(&target, |river| self.input.river_other_side(*river, source))
-                  .map(|idx| rivers[idx])
-                  .ok() // Result -> Option transform
-        })
+    fn find_river(&self, source: SiteId, target: SiteId) -> Option<RiverIdx> {
+        let source_idx = self.site_index[&source];
+        let target_idx = self.site_index[&target];
+        self.edges[source_idx]
+            .binary_search_by_key(&target_idx, |river| self.input.river_other_index(*river, source_idx))
+            .map(|river| self.edges[source_idx][river])
+            .ok() // Result -> Option transform
     }
 
     #[allow(dead_code)]
-    fn river(&self, id: RiverId) -> &River {
+    fn river(&self, id: RiverIdx) -> &River {
         &self.input.map.rivers[id]
     }
 
-    fn river_mut(&mut self, id: RiverId) -> &mut River {
+    fn river_mut(&mut self, id: RiverIdx) -> &mut River {
         &mut self.input.map.rivers[id]
     }
 
@@ -317,7 +352,7 @@ impl Play {
     }
 }
 
-impl GameAction for RiverId {}
+impl GameAction for RiverIdx {}
 
 #[derive(Debug, PartialEq)]
 enum GameStatus {
@@ -334,7 +369,7 @@ struct InternalGameState<'a> {
     status: GameStatus,
     current_punter: PunterId,
     rivers: Vec<River>,
-    available_rivers: HashSet<RiverId>,
+    available_rivers: HashSet<RiverIdx>,
     scores: Vec<u64>,
 }
 
@@ -370,13 +405,13 @@ impl<'a> InternalGameState<'a> {
     }
 }
 
-impl<'a> Game<RiverId> for InternalGameState<'a> {
-    fn available_actions (&self) -> &HashSet<RiverId> {
+impl<'a> Game<RiverIdx> for InternalGameState<'a> {
+    fn available_actions (&self) -> &HashSet<RiverIdx> {
         assert!(self.status != GameStatus::NotStarted);
         &self.available_rivers
     }
 
-    fn make_move(&mut self, river: RiverId) {
+    fn make_move(&mut self, river: RiverIdx) {
         assert!(self.status == GameStatus::Playing);
         self.rivers[river].add_owner(self.current_punter);
         self.available_rivers.remove(&river);
@@ -559,7 +594,7 @@ impl<'a, A: GameAction> MCTSNode<A> {
 #[derive(Debug)]
 struct MCTS<'a> {
     punter: &'a Punter,
-    root: Rc<RefCell<MCTSNode<RiverId>>>,
+    root: Rc<RefCell<MCTSNode<RiverIdx>>>,
     c: f64,
 }
 
