@@ -309,9 +309,7 @@ impl Punter {
     }
 
     fn move_mcts(&self, begin_time: Instant, timeout: u8) -> Play {
-        // FIXME: c seems wrong here: if we include 2 in the sqrt here,
-        // then c here should be 1.0, since 1.4 is actually sqrt(2)
-        let mut mcts = MCTS::new(self, 1.4);
+        let mut mcts = MCTS::new(self, 1.);
         let mut iterations = 0;
         let mut game = InternalGameState::new(&self);
         while begin_time.elapsed() < Duration::from_millis((timeout as u64 * 1000) - 100) {
