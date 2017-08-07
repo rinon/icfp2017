@@ -125,7 +125,7 @@ impl Input {
         // we can compute the shortest path using a simple
         // breadth-first search algorithm; for every mine,
         // we visit all sites exactly once.
-        let mut shortest_paths = vec![vec![usize::max_value; self.map.sites.len()]; self.map.mines.len()];
+        let mut shortest_paths = vec![vec![usize::max_value(); self.map.sites.len()]; self.map.mines.len()];
         let mut que: VecDeque<SiteId> = VecDeque::with_capacity(self.map.sites.len());
         for (mine, ref mut mine_dists) in self.map.mines.iter().zip(shortest_paths.iter_mut()) {
             let mine_idx = site_index[mine];
