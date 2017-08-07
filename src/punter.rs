@@ -60,11 +60,20 @@ pub struct River {
 
     #[serde(default)]
     owner: Option<PunterId>,
+
+    #[serde(default)]
+    renter: Option<PunterId>,
 }
 
 impl River {
-    pub fn set_owner(&mut self, punter: PunterId) {
-        self.owner = Some(punter)
+    pub fn add_owner(&mut self, punter: PunterId) {
+        if self.owner.is_some() {
+            assert!(self.renter.is_none());
+            self.renter = Some(punter);
+        } else {
+            assert!(self.owner.is_none());
+            self.owner = Some(punter);
+        }
     }
 
     pub fn other_side(&self, site: SiteId) -> SiteId {
@@ -218,7 +227,8 @@ impl Punter {
                     if let Some(ref neighbors) = self.edges.get(&site) {
                         for ridx in *neighbors {
                             let river = &rivers[*ridx];
-                            if river.owner.map_or(true, |o| o != punter) {
+                            if river.owner.map_or(true, |o| o != punter) ||
+                                river.renter.map_or(true, |o| o != punter) {
                                 continue;
                             }
                             let neighbor = river.other_side(site);
@@ -288,7 +298,7 @@ impl Punter {
 
     fn add_move(&mut self, punter: PunterId, source: SiteId, target: SiteId) {
         let id = self.find_river(source, target).unwrap();
-        self.river_mut(id).set_owner(punter);
+        self.river_mut(id).add_owner(punter);
     }
 }
 
@@ -341,7 +351,7 @@ impl<'a> Game<Play> for InternalGameState<'a> {
 
     fn make_move(&mut self, action: &Play) {
         let river = self.state.find_river(action.source, action.target).unwrap();
-        self.rivers[river].set_owner(action.punter);
+        self.rivers[river].add_owner(action.punter);
         self.available_rivers.remove(&river);
         self.current_punter = (self.current_punter + 1) % self.state.input.punters;
     }
