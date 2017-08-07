@@ -255,7 +255,7 @@ impl Punter {
         // then c here should be 1.0, since 1.4 is actually sqrt(2)
         let mut mcts = MCTS::new(self, 1.4);
         let mut iterations = 0;
-        while begin_time.elapsed() < Duration::from_millis(timeout as u64 * 900) {
+        while begin_time.elapsed() < Duration::from_millis((timeout as u64 * 1000) - 150) {
             mcts.step();
             iterations += 1;
             // println!("MCTS: {:#?}", mcts.root);
