@@ -2,6 +2,7 @@
 use punter::PunterId;
 use punter::SiteId;
 use punter::Punter;
+use punter::Input;
 
 #[derive(Serialize, Deserialize, Debug)]
 pub struct HandshakeP {
@@ -33,37 +34,121 @@ pub enum TurnS {
 }
 
 #[derive(Serialize, Deserialize, Debug)]
-pub struct TurnStateS {
-    turn: TurnS,
-    state: Punter,
-}
-
-#[derive(Serialize, Deserialize, Debug)]
 pub enum Move {
-    claim {
-        punter: PunterId,
-        source: SiteId,
-        target: SiteId,
-    },
+    claim (Claim),
 
-    pass {
-        punter: PunterId,
-    },
+    pass (Pass),
 
-    splurge {
-        punter: PunterId,
-        route: Vec<SiteId>,
-    },
+    splurge (Splurge),
 
-    option {
-        punter: PunterId,
-        source: SiteId,
-        target: SiteId,
-    },
+    option (Claim),
 }
 
 #[derive(Serialize, Deserialize, Debug)]
 pub struct Score {
     punter: PunterId,
     score: isize,
+}
+
+
+
+
+#[derive(Serialize, Deserialize, Debug)]
+pub struct OfflineReadyP {
+    pub ready: PunterId,
+    pub state: Punter,
+}
+
+
+#[derive(Serialize, Deserialize, Debug)]
+#[serde(untagged)]
+pub enum OfflineInput {
+    Setup (Input),
+
+    Turn (OfflineTurn),
+
+    Stop (OfflineStop),
+
+    Timeout {
+        timeout: f64,
+    }
+}
+
+#[derive(Serialize, Deserialize, Debug)]
+pub struct OfflineTurn {
+    // move is a reserved keyword
+    #[serde(rename = "move")]
+    pub turn: Moves,
+    pub state: Punter,
+}
+
+#[derive(Serialize, Deserialize, Debug)]
+pub struct Moves {
+    pub moves: Vec<Move>
+}
+
+#[derive(Serialize, Deserialize, Debug)]
+pub struct OfflineStop {
+    pub stop: MovesScores,
+    pub state: Punter,
+}
+
+#[derive(Serialize, Deserialize, Debug)]
+pub struct MovesScores {
+    pub moves: Vec<Move>,
+    pub scores: Vec<Score>
+}
+
+#[derive(Serialize, Deserialize, Debug)]
+#[serde(untagged)]
+pub enum OfflineMove {
+    Claim (OfflineClaim),
+
+    Pass (OfflinePass),
+
+    Splurge (OfflineSplurge),
+
+    Option (OfflineOption),
+}
+
+#[derive(Serialize, Deserialize, Debug)]
+pub struct OfflineClaim {
+    pub claim: Claim,
+    pub state: Punter,
+}
+
+#[derive(Serialize, Deserialize, Debug)]
+pub struct Claim {
+    pub punter: PunterId,
+    pub source: SiteId,
+    pub target: SiteId,
+}
+
+#[derive(Serialize, Deserialize, Debug)]
+pub struct OfflinePass {
+    pub pass: Pass,
+    pub state: Punter,
+}
+
+#[derive(Serialize, Deserialize, Debug)]
+pub struct Pass {
+    pub punter: PunterId,
+}
+
+#[derive(Serialize, Deserialize, Debug)]
+pub struct OfflineSplurge {
+    pub splurge: Splurge,
+    pub state: Punter,
+}
+
+#[derive(Serialize, Deserialize, Debug)]
+pub struct Splurge {
+    pub punter: PunterId,
+    pub route: Vec<SiteId>,
+}
+
+#[derive(Serialize, Deserialize, Debug)]
+pub struct OfflineOption {
+    pub option: Claim,
+    pub state: Punter,
 }

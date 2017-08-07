@@ -57,7 +57,7 @@ fn online_handshake(stream: &mut BufStream<TcpStream>, name: String) {
 }
 
 fn online_game_loop(stream: &mut BufStream<TcpStream>, timeout: u8) {
-    let setup_begin = Instant::now();
+    // let setup_begin = Instant::now();
     let setup_input: punter::Input = recv_message(stream)
         .expect("Could not parse setup message");
 
@@ -68,28 +68,30 @@ fn online_game_loop(stream: &mut BufStream<TcpStream>, timeout: u8) {
         ready: punter.id(),
     };
     send_message(stream, &ready_msg);
-    let setup_time = setup_begin.elapsed();
-    println!("Setup took {}.{:09}s", setup_time.as_secs(), setup_time.subsec_nanos());
+    // let setup_time = setup_begin.elapsed();
+    // println!("Setup took {}.{:09}s", setup_time.as_secs(), setup_time.subsec_nanos());
 
     loop {
         let turn: protocol::TurnS = recv_message(stream)
             .expect("Could not parse turn");
         let turn_begin = Instant::now();
         // println!("{:#?}", turn);
-        if let protocol::TurnS::timeout (_) = turn {
-            println!("Timout!");
-            continue;
+        match turn {
+            protocol::TurnS::timeout (_) => {
+                println!("Timout!");
+            }
+            protocol::TurnS::turn {moves} => {
+                punter.process_turn(&moves);
+                let next_move = punter.make_move(turn_begin, timeout);
+                // println!("{:?}", next_move);
+                send_message(stream, &next_move);
+            }
+            protocol::TurnS::stop{scores, moves: _} => {
+                println!("Done with game. Scores: {:?}", scores);
+                println!("Our score: {:?}", scores[punter.id()]);
+                break;
+            }
         };
-        if let protocol::TurnS::stop{scores, moves: _} = turn {
-            println!("Done with game. Scores: {:?}", scores);
-            println!("Our score: {:?}", scores[punter.id()]);
-            break;
-        }
-
-        punter.process_turn(turn);
-        let next_move = punter.make_move(turn_begin, timeout);
-        // println!("{:?}", next_move);
-        send_message(stream, &next_move);
     }
 }
 
@@ -118,6 +120,7 @@ fn main() {
 
     let connection = TcpStream::connect((&server[..], port))
         .expect("Connection refused!");
+    connection.set_nodelay(true).unwrap();
     let mut stream = BufStream::new(connection);
 
     online_handshake(&mut stream, name);

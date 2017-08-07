@@ -1,3 +1,6 @@
+extern crate bincode;
+extern crate serde_bytes;
+
 use std::collections::{HashSet, HashMap, VecDeque};
 use rand::{thread_rng};
 use std::time::{Duration, Instant};
@@ -8,6 +11,8 @@ use rand::Rng;
 use std::rc::Rc;
 use std::rc::Weak;
 use std::cell::RefCell;
+use serde::{Serialize, Serializer, Deserialize, Deserializer};
+use serde::de::DeserializeOwned;
 
 use protocol;
 
@@ -150,6 +155,7 @@ impl Input {
 // This structure contains the entire state of a punter
 #[derive(Serialize, Deserialize, Debug)]
 pub struct Punter {
+    #[serde(serialize_with="bin_serializer", deserialize_with="bin_deserializer")]
     input: Input,
 
     // Reverse id-to-idx mappings
@@ -159,10 +165,27 @@ pub struct Punter {
     // for every site, we keep a list of all its rivers
     // The list of edges is sorted in increasing order of
     // river.other_side(site)
+    #[serde(serialize_with="bin_serializer", deserialize_with="bin_deserializer")]
     edges: EdgeMatrix,
+    #[serde(serialize_with="bin_serializer", deserialize_with="bin_deserializer")]
     shortest_paths: ShortestPathsMap,
 
     ai: PunterType,
+}
+
+fn bin_serializer<S, T>(field: T, serializer: S) -> Result<S::Ok, S::Error>
+    where S: Serializer,
+          T: Serialize
+{
+    serializer.serialize_bytes(&bincode::serialize(&field, bincode::Infinite).unwrap()[..])
+}
+
+fn bin_deserializer<'de, D, T>(deserializer: D) -> Result<T, D::Error>
+    where D: Deserializer<'de>,
+          T: DeserializeOwned
+{
+    let v: Vec<u8> = Deserialize::deserialize(deserializer)?;
+    Ok(bincode::deserialize(&v[..]).unwrap())
 }
 
 #[derive(Serialize, Deserialize, Debug)]
@@ -173,7 +196,7 @@ pub enum PunterType {
 
 impl Punter {
     pub fn new(input: Input, ai: PunterType) -> Punter {
-        println!("Mines {:#?}", input.map.mines);
+        eprintln!("Mines {:#?}", input.map.mines);
         let mut input = input; // Make a mutable copy of the input
         let site_index = input.map.sites.iter().enumerate()
             .map(|(idx, site)| (site.id, idx))
@@ -195,25 +218,29 @@ impl Punter {
     }
 
     /// Add the previous turns moves into the current state
-    pub fn process_turn(&mut self, turn: protocol::TurnS) {
-        if let protocol::TurnS::turn { moves } = turn {
-            for m in moves {
-                match m {
-                    protocol::Move::claim {punter, source, target} => {
-                        self.add_move(punter, source, target);
-                    }
-                    protocol::Move::option {punter, source, target} => {
-                        self.add_move(punter, source, target);
-                    }
-                    protocol::Move::splurge {punter, route} => {
-                        let mut source = route[0];
-                        for target in &route[1..] {
-                            self.add_move(punter, source, *target);
-                            source = *target;
-                        }
-                    }
-                    protocol::Move::pass { punter: _ } => { }
+    pub fn process_turn(&mut self, moves: &Vec<protocol::Move>) {
+        for m in moves {
+            match m {
+                &protocol::Move::claim (
+                    protocol::Claim {punter, source, target}
+                ) => {
+                    self.add_move(punter, source, target);
                 }
+                &protocol::Move::option (
+                    protocol::Claim {punter, source, target}
+                ) => {
+                    self.add_move(punter, source, target);
+                }
+                &protocol::Move::splurge (
+                    protocol::Splurge {punter, ref route}
+                ) => {
+                    let mut source = route[0];
+                    for target in &route[1..] {
+                        self.add_move(punter, source, *target);
+                        source = *target;
+                    }
+                }
+                &protocol::Move::pass (_) => { }
             }
         }
     }
@@ -224,11 +251,11 @@ impl Punter {
             PunterType::MCTS   => self.move_mcts(begin_time, timeout),
         };
 
-        protocol::Move::claim {
+        protocol::Move::claim (protocol::Claim {
             punter: play.punter,
             source: play.source,
             target: play.target,
-        }
+        })
     }
 
     pub fn compute_scores(&self, rivers: &Vec<River>, scores: &mut Vec<u64>) {
@@ -287,13 +314,13 @@ impl Punter {
         let mut mcts = MCTS::new(self, 1.4);
         let mut iterations = 0;
         let mut game = InternalGameState::new(&self);
-        while begin_time.elapsed() < Duration::from_millis((timeout as u64 * 1000) - 150) {
+        while begin_time.elapsed() < Duration::from_millis((timeout as u64 * 1000) - 100) {
             game.reset_game();
             mcts.step(&mut game);
             iterations += 1;
-            // println!("MCTS: {:#?}", mcts.root);
+            // eprintln!("MCTS: {:#?}", mcts.root);
         }
-        println!("Ran {} iterations", iterations);
+        eprintln!("Ran {} iterations", iterations);
         mcts.best_move()
     }
 
@@ -503,7 +530,7 @@ impl<'a, A: GameAction> MCTSNode<A> {
 
     /// Expand and return a new child of this node.
     fn expand(&mut self, g: &Game<A>) -> Option<Rc<RefCell<MCTSNode<A>>>> {
-        // println!("Expanding: {:#?}", self);
+        // eprintln!("Expanding: {:#?}", self);
         let moves = g.available_actions();
         if moves.len() == 0 {
             self.status = NodeStatus::Done;
