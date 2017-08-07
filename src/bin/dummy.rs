@@ -4,6 +4,8 @@ extern crate serde;
 extern crate serde_json;
 extern crate rand;
 
+use std::time::Instant;
+
 extern crate punter;
 use punter::protocol;
 use punter::punter::PunterType;
@@ -21,6 +23,6 @@ fn main() {
     }
 
     punter.process_turn(turn);
-    let next_move = punter.make_move();
+    let next_move = punter.make_move(Instant::now());
     println!("{:?}", next_move);
 }

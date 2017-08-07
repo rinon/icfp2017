@@ -165,10 +165,10 @@ impl Punter {
         }
     }
 
-    pub fn make_move(&self) -> protocol::Move {
+    pub fn make_move(&self, begin_time: Instant) -> protocol::Move {
         let play = match self.ai {
             PunterType::Random => self.move_random(),
-            PunterType::MCTS   => self.move_mcts(),
+            PunterType::MCTS   => self.move_mcts(begin_time),
         };
 
         protocol::Move::claim {
@@ -228,13 +228,12 @@ impl Punter {
         }
     }
 
-    fn move_mcts(&self) -> Play {
-        let now = Instant::now();
+    fn move_mcts(&self, begin_time: Instant) -> Play {
         // FIXME: c seems wrong here: if we include 2 in the sqrt here,
         // then c here should be 1.0, since 1.4 is actually sqrt(2)
         let mut mcts = MCTS::new(self, 1.4);
         let mut iterations = 0;
-        while now.elapsed() < Duration::from_millis(900) {
+        while begin_time.elapsed() < Duration::from_millis(900) {
             mcts.step();
             iterations += 1;
             // println!("MCTS: {:#?}", mcts.root);

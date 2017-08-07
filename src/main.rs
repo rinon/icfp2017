@@ -71,6 +71,7 @@ fn online_game_loop(stream: &mut BufStream<TcpStream>) {
     println!("Setup took {}.{:09}s", setup_time.as_secs(), setup_time.subsec_nanos());
 
     loop {
+        let turn_begin = Instant::now();
         let turn: protocol::TurnS = recv_message(stream)
             .expect("Could not parse turn");
         if let protocol::TurnS::timeout (_) = turn {
@@ -84,7 +85,7 @@ fn online_game_loop(stream: &mut BufStream<TcpStream>) {
         }
 
         punter.process_turn(turn);
-        let next_move = punter.make_move();
+        let next_move = punter.make_move(turn_begin);
         println!("{:?}", next_move);
         send_message(stream, &next_move);
     }
