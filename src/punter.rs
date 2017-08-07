@@ -25,8 +25,8 @@ type SiteIndex = HashMap<SiteId, SiteIdx>;
 type EdgeMatrix = Vec<Vec<RiverIdx>>;
 type ShortestPathsMap = Vec<Vec<usize>>;
 
-const SIMULATION_DEPTH: usize = 1000;
-const AVAILABLE_RADIUS: Option<usize> = Some(3);
+const SIMULATION_DEPTH: usize = 100;
+const AVAILABLE_RADIUS: Option<usize> = Some(2);
 
 #[derive(Serialize, Deserialize, Debug)]
 pub struct Input {
@@ -440,18 +440,6 @@ impl<'a> InternalGameState<'a> {
                 let mut distance = 0;
                 while let Some(site_idx) = que.pop_front() {
                     count -= 1;
-                    if count == 0 {
-                        distance += 1;
-                        count = que.len();
-                    }
-                    if distance > radius {
-                        break;
-                    }
-
-                    if visited[site_idx] {
-                        continue;
-                    }
-
 
                     for ridx in &self.state.edges[site_idx] {
                         let river = &self.rivers[*ridx];
@@ -464,6 +452,13 @@ impl<'a> InternalGameState<'a> {
                             visited[neighbor] = true;
                             que.push_back(neighbor);
                         }
+                    }
+                    if count == 0 {
+                        distance += 1;
+                        count = que.len();
+                    }
+                    if distance > radius {
+                        break;
                     }
                 }
             }        

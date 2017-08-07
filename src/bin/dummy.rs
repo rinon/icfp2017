@@ -22,7 +22,9 @@ fn main() {
         return;
     }
 
-    punter.process_turn(turn);
-    let next_move = punter.make_move(Instant::now(), 1);
-    println!("{:?}", next_move);
+    if let protocol::TurnS::turn {moves} = turn {
+        punter.process_turn(&moves);
+        let next_move = punter.make_move(Instant::now(), 1);
+        println!("{:?}", next_move);
+    }
 }
