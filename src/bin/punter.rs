@@ -15,20 +15,6 @@ use p::punter;
 const NAME: &str = "random hackers";
 const TIMEOUT: u8 = 1;
 
-// struct OfflineGame<'a> {
-//     stdin: &'a io::Stdin,
-//     reader: io::StdinLock<'a>,
-//     writer: io::Stdout,
-// }
-
-// impl<'a> OfflineGame<'a> {
-    // fn new() -> OfflineGame<'a> {
-    //     OfflineGame {
-    //         reader: Rc::new(io::stdin().lock()),
-    //         writer: io::stdout(),
-    //     }
-    // }
-
 struct OfflineGame;
 
 impl OfflineGame {

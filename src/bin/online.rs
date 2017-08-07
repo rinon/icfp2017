@@ -1,6 +1,3 @@
-#[macro_use]
-extern crate serde_derive;
-
 extern crate getopts;
 extern crate bufstream;
 extern crate serde;
@@ -14,9 +11,10 @@ use bufstream::BufStream;
 use std::io::{Read, Write, BufRead};
 use std::time::Instant;
 
-mod punter;
-mod protocol;
-use punter::Punter;
+extern crate punter as p;
+use p::protocol;
+use p::punter::Punter;
+use p::punter;
 
 const DEFAULT_SERVER: &str = "punter.inf.ed.ac.uk";
 const DEFAULT_PORT: &str = "9001";
