@@ -19,6 +19,8 @@ pub type RiverId = usize;
 type EdgeMatrix = HashMap<SiteId, Vec<RiverId>>;
 type ShortestPathsMap = HashMap<(SiteId, SiteId), usize>;
 
+const SIMULATION_DEPTH: usize = 1000;
+
 #[derive(Serialize, Deserialize, Debug)]
 pub struct Input {
     punter: PunterId,
@@ -472,7 +474,10 @@ impl<'a, A: GameAction> MCTSNode<A> {
     /// pure Monte Carlo simulation.
     fn simulate(&self, g: &mut Game<A>) -> f64 {
         let mut rng = thread_rng();
-        while g.available_actions().len() > 0 {
+        for _ in 0..SIMULATION_DEPTH {
+            if g.available_actions().len() == 0 {
+                break;
+            }
             let choices = g.available_actions();
             g.make_move(rng.choose(&choices).unwrap());
         }
