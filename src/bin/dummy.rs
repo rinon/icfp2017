@@ -23,6 +23,6 @@ fn main() {
     }
 
     punter.process_turn(turn);
-    let next_move = punter.make_move(Instant::now());
+    let next_move = punter.make_move(Instant::now(), 1);
     println!("{:?}", next_move);
 }

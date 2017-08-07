@@ -21,6 +21,7 @@ use punter::Punter;
 const DEFAULT_SERVER: &str = "punter.inf.ed.ac.uk";
 const DEFAULT_PORT: &str = "9001";
 const DEFAULT_NAME: &str = "random hackers";
+const DEFAULT_TIMEOUT: &str = "1";
 
 fn print_usage(program: &str, opts: Options) {
     let brief = format!("Usage: {} [options]", program);
@@ -55,7 +56,7 @@ fn online_handshake(stream: &mut BufStream<TcpStream>, name: String) {
     println!("Registered as: {}", handshake.you);
 }
 
-fn online_game_loop(stream: &mut BufStream<TcpStream>) {
+fn online_game_loop(stream: &mut BufStream<TcpStream>, timeout: u8) {
     let setup_begin = Instant::now();
     let setup_input: punter::Input = recv_message(stream)
         .expect("Could not parse setup message");
@@ -85,7 +86,7 @@ fn online_game_loop(stream: &mut BufStream<TcpStream>) {
         }
 
         punter.process_turn(turn);
-        let next_move = punter.make_move(turn_begin);
+        let next_move = punter.make_move(turn_begin, timeout);
         println!("{:?}", next_move);
         send_message(stream, &next_move);
     }
@@ -99,6 +100,7 @@ fn main() {
     opts.optopt("s", "server", "server address", "ADDRESS");
     opts.optopt("p", "port", "port", "PORT");
     opts.optopt("n", "name", "AI name", "NAME");
+    opts.optopt("t", "timeout", "Move timeout", "TIMEOUT");
     opts.optflag("h", "help", "print this help menu");
     let matches = opts.parse(&args[1..]).unwrap();
     if matches.opt_present("h") {
@@ -110,11 +112,13 @@ fn main() {
     let port: u16 = matches.opt_str("port").unwrap_or(DEFAULT_PORT.to_string())
         .parse().unwrap();
     let name = matches.opt_str("name").unwrap_or(DEFAULT_NAME.to_string());
+    let timeout: u8 = matches.opt_str("timeout").unwrap_or(DEFAULT_TIMEOUT.to_string())
+        .parse().unwrap();
 
     let connection = TcpStream::connect((&server[..], port))
         .expect("Connection refused!");
     let mut stream = BufStream::new(connection);
 
     online_handshake(&mut stream, name);
-    online_game_loop(&mut stream);
+    online_game_loop(&mut stream, timeout);
 }
