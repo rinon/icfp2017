@@ -212,11 +212,11 @@ impl Punter {
     }
 
     pub fn score(&self, rivers: &Vec<River>) -> Vec<u64> {
-        let mut scores = Vec::new();
+        let mut scores = Vec::with_capacity(self.input.punters);
+        let mut que: VecDeque<SiteId> = VecDeque::with_capacity(self.input.map.sites.len());
+        let mut visited = HashSet::<SiteId>::with_capacity(self.input.map.sites.len());
         for punter in 0..self.input.punters {
             let mut score: u64 = 0;
-            let mut que: VecDeque<SiteId> = VecDeque::with_capacity(self.input.map.sites.len());
-            let mut visited = HashSet::<(SiteId, SiteId)>::new();
             for mine in &self.input.map.mines {
                 que.clear();
                 que.push_back(*mine);
@@ -232,9 +232,8 @@ impl Punter {
                                 continue;
                             }
                             let neighbor = river.other_side(site);
-                            let neighbor_key = (*mine, neighbor);
-                            if !visited.contains(&neighbor_key) {
-                                visited.insert(neighbor_key);
+                            if !visited.contains(&neighbor) {
+                                visited.insert(neighbor);
                                 que.push_back(neighbor);
                             }
                         }
